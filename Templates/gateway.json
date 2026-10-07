@@ -30,6 +30,13 @@
       "type": "int",
       "minValue": 2,
       "defaultValue": 2
+    },
+    "trustedRootData": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional public DER root certificate encoded as base64; never private-key material."
+      }
     }
   },
   "resources": [
@@ -129,7 +136,8 @@
               "requestTimeout": 120,
               "probe": {
                 "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/probes/app')]"
-              }
+              },
+              "trustedRootCertificates": "[if(empty(parameters('trustedRootData')), json('[]'), createArray(createObject('id', concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/trustedRootCertificates/lab-root'))))]"
             }
           },
           {
@@ -142,7 +150,8 @@
               "requestTimeout": 120,
               "probe": {
                 "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/probes/auth')]"
-              }
+              },
+              "trustedRootCertificates": "[if(empty(parameters('trustedRootData')), json('[]'), createArray(createObject('id', concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/trustedRootCertificates/lab-root'))))]"
             }
           }
         ],
@@ -258,7 +267,8 @@
           "requestBodyCheck": true,
           "maxRequestBodySizeInKb": 128,
           "fileUploadLimitInMb": 100
-        }
+        },
+        "trustedRootCertificates": "[if(empty(parameters('trustedRootData')), json('[]'), createArray(createObject('name', 'lab-root', 'properties', createObject('data', parameters('trustedRootData')))))]"
       }
     }
   ]

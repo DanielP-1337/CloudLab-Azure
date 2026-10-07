@@ -6,7 +6,7 @@ exec 9>/var/lock/cloudlab-install.lock
 flock -n 9 || { echo 'Another installation is running.' >&2; exit 1; }
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq >/dev/null
-apt-get install -y -qq openjdk-21-jre-headless postgresql nginx curl openssl python3 >/dev/null
+apt-get install -y -qq openjdk-21-jre-headless postgresql nginx curl openssl python3 ca-certificates >/dev/null
 install -d -m 700 /etc/cloudlab /var/lib/cloudlab/backup
 install -d -m 755 /opt/keycloak/releases /opt/oauth2-proxy /etc/nginx/cloudlab
 python3 - <<'PYTHON'
@@ -16,6 +16,15 @@ k=c['Keycloak']; base=pathlib.Path('/etc/cloudlab')
 def write(path,text,mode=0o600):
  p=pathlib.Path(path); p.write_text(text); p.chmod(mode)
 write(base/'config.json',json.dumps(c))
+lab=c.get('LabTls')
+if c.get('LabTlsEnabled') and not lab: raise RuntimeError('Missing lab TLS context')
+if lab:
+ root_der=base64.b64decode(lab['RootDerBase64'],validate=True)
+ if hashlib.sha1(root_der).hexdigest().upper()!=lab['RootThumbprint'].upper(): raise RuntimeError('Lab root fingerprint mismatch')
+ (base/'root-ca.der').write_bytes(root_der)
+ subprocess.run(['openssl','x509','-inform','DER','-in',str(base/'root-ca.der'),'-out','/usr/local/share/ca-certificates/cloudlab-root.crt'],check=True)
+ pathlib.Path('/usr/local/share/ca-certificates/cloudlab-root.crt').chmod(0o644)
+ subprocess.run(['update-ca-certificates'],check=True,stdout=subprocess.DEVNULL)
 # IMDS token stays only in guest memory. urllib has no proxy for link-local IMDS.
 opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
 req=urllib.request.Request('http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https%3A%2F%2Fvault.azure.net',headers={'Metadata':'true'})
@@ -38,7 +47,15 @@ pfx=base64.b64decode(secret(c['CertificateSecret']),validate=True)
 write(base/'tls.pfx',''); (base/'tls.pfx').write_bytes(pfx)
 # No PFX password in shell arguments; Key Vault certificate backing PFX has none.
 subprocess.run(['openssl','pkcs12','-in',str(base/'tls.pfx'),'-nodes','-nocerts','-passin','pass:','-out','/etc/nginx/cloudlab/key.pem'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-subprocess.run(['openssl','pkcs12','-in',str(base/'tls.pfx'),'-nokeys','-passin','pass:','-out','/etc/nginx/cloudlab/chain.pem'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+subprocess.run(['openssl','pkcs12','-in',str(base/'tls.pfx'),'-clcerts','-nokeys','-passin','pass:','-out','/etc/nginx/cloudlab/chain.pem'],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+if lab:
+ fingerprint=subprocess.check_output(['openssl','x509','-in','/etc/nginx/cloudlab/chain.pem','-noout','-fingerprint','-sha1'],text=True).strip().split('=')[-1].replace(':','')
+ if fingerprint.upper()!=lab['ServerThumbprint'].upper(): raise RuntimeError('Key Vault certificate differs from lab manifest')
+ subprocess.run(['openssl','verify','-CAfile','/usr/local/share/ca-certificates/cloudlab-root.crt','/etc/nginx/cloudlab/chain.pem'],check=True,stdout=subprocess.DEVNULL)
+else:
+ # Preserve intermediate CA certificates for the original public-CA mode.
+ chain=subprocess.check_output(['openssl','pkcs12','-in',str(base/'tls.pfx'),'-cacerts','-nokeys','-passin','pass:'],stderr=subprocess.DEVNULL)
+ with open('/etc/nginx/cloudlab/chain.pem','ab') as stream: stream.write(chain)
 (base/'tls.pfx').unlink()
 for host in [c['AppHost'],c['AuthHost'],c['BackendHost']]:
  subprocess.run(['openssl','x509','-in','/etc/nginx/cloudlab/chain.pem','-noout','-checkhost',host],check=True,stdout=subprocess.DEVNULL)
@@ -73,6 +90,8 @@ write(base/'install.env','\n'.join(a+'='+shlex.quote(str(v)) for a,v in {'KC_VER
 # /etc/hosts affects only backend lookup; public app name still resolves to Gateway.
 hosts=pathlib.Path('/etc/hosts'); lines=[l for l in hosts.read_text().splitlines() if '# cloudlab-managed' not in l]
 lines.append(c['App']['Ip']+' '+c['BackendHost']+' # cloudlab-managed')
+if lab:
+ lines.append('127.0.0.1 '+c['AuthHost']+' # cloudlab-managed')
 hosts.write_text('\n'.join(lines)+'\n')
 PYTHON
 # shellcheck source=/dev/null
@@ -196,10 +215,13 @@ tls="""ssl_certificate /etc/nginx/cloudlab/chain.pem;
 ssl_certificate_key /etc/nginx/cloudlab/key.pem;
 ssl_protocols TLSv1.2 TLSv1.3;
 """
+# Local OIDC discovery uses the same issuer/SNI name and validates the lab CA.
+# Only loopback gets port 443; external gateway traffic still uses port 8443.
+auth_local_listen='listen 127.0.0.1:443 ssl;' if c.get('LabTls') else ''
 server=f"""map $http_upgrade $connection_upgrade {{ default upgrade; '' close; }}
 server {{ listen 8443 ssl default_server; server_name _; {tls} return 444; }}
 server {{
- listen 8443 ssl; server_name {c['AuthHost']}; {tls}
+ listen 8443 ssl; {auth_local_listen} server_name {c['AuthHost']}; {tls}
  location = /_gateway_health {{ allow {c['Subnets']['AppGatewaySubnet']}; deny all; proxy_pass http://127.0.0.1:9000/health/ready; }}
  location ^~ /realms/{k['Realm']}/ {{ include /etc/nginx/cloudlab/proxy-headers.conf; proxy_pass http://127.0.0.1:8080; }}
  location ^~ /resources/ {{ include /etc/nginx/cloudlab/proxy-headers.conf; proxy_pass http://127.0.0.1:8080; }}

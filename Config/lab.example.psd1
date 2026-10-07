@@ -24,6 +24,7 @@
     WindowsPasswordSecret = 'windows-admin-password'
     CertificateSecret = 'web-tls'
     GatewayCertificateSecretUri = 'https://REPLACE.vault.azure.net/secrets/web-tls'
+    LabTlsEnabled = $false # Opt in locally with Scripts/Initialize-LabTls.ps1
     AppHost = 'REPLACE-app.example.com'
     AuthHost = 'REPLACE-login.example.com'
     BackendHost = 'REPLACE-backend.example.com'

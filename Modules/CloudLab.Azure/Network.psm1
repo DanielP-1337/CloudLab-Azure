@@ -40,6 +40,11 @@ function Initialize-CLNetwork {
 function Deploy-CLGateway {
     param($Config,[string]$ProjectRoot)
     foreach ($key in 'AppHost','AuthHost','GatewayCertificateSecretUri') { Assert-CLValue $Config[$key] $key }
+    $rootData = ''
+    if ($Config.ContainsKey('LabTlsEnabled') -and $Config.LabTlsEnabled) {
+        if (-not $Config.ContainsKey('LabTls')) { throw 'Lab TLS context must be initialized before gateway deployment.' }
+        $rootData = $Config.LabTls.RootDerBase64
+    }
     $identity = Get-AzUserAssignedIdentity -ResourceGroupName $Config.ResourceGroup -Name "$($Config.Prefix)-gateway-id" -ErrorAction SilentlyContinue
     if (-not $identity) { $identity = New-AzUserAssignedIdentity -ResourceGroupName $Config.ResourceGroup -Name "$($Config.Prefix)-gateway-id" -Location $Config.Location }
     $vault = Get-AzKeyVault -VaultName $Config.VaultName -ResourceGroupName $Config.SharedResourceGroup
@@ -49,7 +54,7 @@ function Deploy-CLGateway {
         location=$Config.Location; prefix=$Config.Prefix; vnetName=$Config.VNetName
         appHost=$Config.AppHost; authHost=$Config.AuthHost; backendIp=$Config.Keycloak.Ip
         certificateSecretUri=$Config.GatewayCertificateSecretUri; identityId=$identity.Id
-        capacity=[int]$Config.GatewayCapacity
+        capacity=[int]$Config.GatewayCapacity; trustedRootData=$rootData
     } -Mode Incremental | Select-Object DeploymentName,ProvisioningState
 }
 Export-ModuleMember -Function *-CL*

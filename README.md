@@ -426,3 +426,10 @@ An opt-in generic IIS smoke-test application can be installed from a verified
 GitHub Release. Prepare a local version lock before deployment; subsequent
 deployments reuse that lock. See [Health integration](Docs/HEALTH-INTEGRATION.md)
 for setup, trust boundaries, remaining SQL/identity prerequisites, and costs.
+
+## Private lab without a domain
+
+Use the optional [.test and lab Root CA profile](Docs/LOCAL-LAB-TLS.md).
+Local preparation creates no Azure resources. Key Vault import and subsequent
+deployment are separate, explicitly cost-bearing steps. All generated PKI and
+site-specific configuration stay under ignored `.local`.

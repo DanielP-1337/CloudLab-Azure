@@ -18,6 +18,14 @@ $pfxText = Get-CLSecret $CL.VaultName $CL.CertificateSecret
 $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
 $flags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::MachineKeySet -bor [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet
 $cert.Import([Convert]::FromBase64String($pfxText),'',$flags)
+if ($CL.PSObject.Properties['LabTls'] -and $CL.LabTls) {
+    if ($cert.Thumbprint -ne $CL.LabTls.ServerThumbprint) { throw 'Key Vault server certificate differs from the lab manifest.' }
+    $labRoot = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2
+    $labRoot.Import([Convert]::FromBase64String($CL.LabTls.RootDerBase64))
+    if ($labRoot.Thumbprint -ne $CL.LabTls.RootThumbprint) { throw 'Lab root thumbprint mismatch.' }
+    $roots = New-Object System.Security.Cryptography.X509Certificates.X509Store('Root','LocalMachine')
+    try { $roots.Open('ReadWrite'); $roots.Add($labRoot) } finally { $roots.Close(); $labRoot.Dispose() }
+}
 if (-not $cert.HasPrivateKey -or $cert.NotAfter -lt (Get-Date).AddDays(7)) { throw 'Missing or expiring IIS TLS certificate.' }
 $store = New-Object System.Security.Cryptography.X509Certificates.X509Store('My','LocalMachine')
 try { $store.Open('ReadWrite'); $store.Add($cert) } finally { $store.Close() }

@@ -6,6 +6,9 @@ param(
 )
 Write-Warning 'COST NOTICE: Deployment can create billable Azure resources. Bootstrap can incur storage/Key Vault charges; Egress, Compute and Gateway incur ongoing charges. No spending cap or automatic teardown is provided.'
 . "$PSScriptRoot/Initialize.ps1"
+if ($Stage -in @('Gateway','Application','Identity','All') -and $Config.ContainsKey('LabTlsEnabled') -and $Config.LabTlsEnabled) {
+    $Config.LabTls = Read-CLLabTls $Config $ProjectRoot
+}
 $lease=Enter-CLLifecycleLock $Config $ProjectRoot
 try {
 $state=Read-CLState $Config $ProjectRoot -Create

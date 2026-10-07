@@ -86,3 +86,4 @@ Scripts/Initialize-HealthRecovery.ps1
 Scripts/Windows/HealthSqlBackup.ps1
 Scripts/Windows/Restore-HealthSql.ps1
 Tests/Test-HealthRecovery.ps1
+Scripts/Test-DeploymentPreflight.ps1

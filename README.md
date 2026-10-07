@@ -83,6 +83,116 @@ Key Vault, a backup vault, or the subscription. Retained storage/transactions an
 any manually created resources can still cost money. There is no automatic
 spending cap or scheduled teardown. Resource creation is staged explicitly.
 
+## Estimated cost of a smoke-test environment
+
+Planning estimate dated **October 7, 2026**, for **Australia East**, in **EUR
+before taxes**, assuming **730 provisioned hours per month** and pay-as-you-go
+pricing. No reservations, savings plans, Spot pricing, Windows Azure Hybrid
+Benefit, promotional credits, or free-tier allowances are deducted.
+
+This estimate describes a **proposed smaller test configuration**, not the
+current example defaults or a production capacity guarantee. The intended initial
+workload is a proof of principle and smoke test with approximately 10 concurrent
+test users. Actual capacity depends on application behavior and test data.
+
+- Keycloak, local PostgreSQL, and the authentication proxy: one Linux
+  `Standard_D2s_v4` VM, 2 vCPUs and 8 GiB RAM.
+- IIS/application: one Windows Server 2025 `Standard_D2s_v4` VM, 2 vCPUs and 8 GiB RAM.
+- SQL Server: one Windows Server 2025 `Standard_D2s_v4` VM, 2 vCPUs and 8 GiB RAM.
+- Windows Server licensing is included in both Windows VM rates.
+- SQL Server is installed from separately supplied media. The estimate assumes
+  an existing license valid for this Azure deployment (BYOL), with no additional
+  SQL license charge. It does not establish license eligibility or include any
+  existing license or Software Assurance costs.
+- Three 128 GiB Premium SSD LRS OS disks and two 32 GiB Premium SSD LRS data disks.
+- The existing network design, including Standard NAT Gateway, two Standard
+  public IPv4 addresses, and Application Gateway WAF_v2 with two fixed instances.
+
+| Component | Calculation or assumption | Estimated EUR/month |
+|---|---|---:|
+| Keycloak Linux VM | EUR 0.1056/hour x 730 | 77.09 |
+| Application Windows VM | EUR 0.1866/hour x 730, Windows license included | 136.22 |
+| SQL Windows VM | EUR 0.1866/hour x 730, Windows license included | 136.22 |
+| Additional SQL license charge | Assumed valid existing BYOL entitlement | 0.00 |
+| Three OS disks | 3 x 128 GiB Premium SSD LRS (P10) | 52.03 |
+| Two data disks | 2 x 32 GiB Premium SSD LRS (P4) | 9.29 |
+| Application Gateway WAF_v2 | Fixed charge plus 20 reserved capacity units | 520.71 |
+| Standard NAT Gateway | Provisional allowance for the hourly base charge | 30.00-40.00 |
+| Two Standard public IPv4 addresses | 2 x EUR 0.0044/hour x 730 | 6.42 |
+| Key Vault and small retained export storage | Planning allowance, usage dependent | 2.00-10.00 |
+| **Rounded baseline total** | **Low traffic; exclusions below** | **970-990** |
+
+Use approximately **EUR 1,000/month before taxes** as a baseline planning figure,
+not a spending cap. VM compute including Windows licensing accounts for about
+EUR 350/month. The NAT amount and retained-service allowance are estimates;
+VM, disk, Application Gateway, and public IP figures were retrieved from the
+[Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)
+using `currencyCode='EUR'`, `armRegionName='australiaeast'`, and consumption
+pricing. Prices and exchange rates can change; confirm the current estimate in
+the [Azure Pricing Calculator](https://azure.microsoft.com/en-us/pricing/calculator/)
+before deployment. Actual account pricing and invoices take precedence.
+
+### Why the gateway dominates the estimate
+
+The current `GatewayCapacity = 2` configuration reserves at least **20 capacity
+units**: 10 per instance. They are billed while the gateway is active even when
+traffic is low. Using the retrieved regional rates:
+
+```text
+(EUR 0.4593 fixed/hour + 20 x EUR 0.0127 per capacity-unit/hour)
+x 730 hours = EUR 520.71/month
+```
+
+Higher actual capacity-unit consumption can increase this amount. See
+[Application Gateway billing](https://learn.microsoft.com/en-us/azure/application-gateway/understanding-pricing).
+This gateway capacity is substantial for a small smoke test.
+
+### Short test windows
+
+If all estimated components exist only for the test window and the ephemeral
+resources are successfully deleted afterward, approximate low-traffic costs are:
+
+| Total provisioned time, including setup and troubleshooting | Estimated cost before taxes |
+|---|---:|
+| 8 hours | EUR 11 |
+| 24 hours | EUR 32 |
+| 7 days (168 hours) | EUR 225 |
+
+These are rounded prorated planning estimates, not billing guarantees. Meter
+rounding and deployment/deletion times affect actual charges. Retained exports
+and Key Vault can continue to incur charges after `Destroy`. Stopping services
+inside a VM is not a substitute for the documented export and teardown lifecycle.
+
+The baseline excludes variable outbound data transfer, NAT data processing,
+gateway capacity above the reserved minimum, large export volumes, domain and
+certificate purchases, paid support, and separately enabled monitoring, backup,
+or security services. The retained-service allowance assumes only small test
+exports and low transaction volume.
+
+### Configuration and cost-control implications
+
+This README section **does not change deployment defaults**. The current public
+example still specifies Dsv5 VM sizes, 4-vCPU application/SQL VMs, 128 GiB data
+disks, and `Sql.MaxMemoryMB = 8192`. Applying this smaller scenario requires
+reviewed changes in `.local/config/lab.psd1`: all three VM sizes to
+`Standard_D2s_v4`, application/SQL data disks to 32 GiB, and an initial SQL
+`MaxMemoryMB` of 4096. Keep each OS disk at the 128 GiB currently specified by the
+compute module. Confirm image compatibility, regional SKU availability, and both
+regional and VM-family quotas before provisioning; the proposed VMs need 6 vCPUs
+in total. Benchmark before making production sizing decisions.
+
+A future dedicated smoke-test mode could omit Application Gateway WAF_v2 except
+for its integration test, reducing the arithmetic baseline to roughly
+**EUR 450-470/month** with other assumptions unchanged. **That mode and its
+alternative secure access path are not implemented.** Merely skipping the Gateway
+stage does not provide a working replacement for public HTTPS ingress. Any access
+redesign needs its own review and cost estimate.
+
+For the existing design, prepare prerequisites before starting billable stages,
+keep the complete environment alive only for the required test window, export
+results, and verify cleanup. There is no automatic budget enforcement or scheduled
+teardown in this project.
+
 ## Dependencies and identity
 
 Local VS Code: PowerShell 7.4, Python 3, Git and these tested-by-you Az modules:

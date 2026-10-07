@@ -24,3 +24,4 @@ jobs:
           ./Tests/Test-ComputeDisks.ps1
           ./Tests/Test-HealthRelease.ps1
           ./Tests/Test-LabTls.ps1
+          ./Tests/Test-SqlDeveloperMedia.ps1

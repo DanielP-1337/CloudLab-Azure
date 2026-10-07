@@ -54,6 +54,7 @@
         QuiesceReviewed = $false
     }
     Sql = @{
+        MediaProvider = 'Staged' # Opt in locally to Developer2022; see Docs/SQL-DEVELOPER.md.
         Name = 'lab-sql'; Size = 'Standard_D2as_v6'; Ip = '10.40.3.10'
         OsDiskType = 'StandardSSD_LRS'; DataDiskType = 'StandardSSD_LRS'
         Publisher = 'MicrosoftWindowsServer'; Offer = 'WindowsServer'; Sku = '2025-datacenter-g2'

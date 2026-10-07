@@ -433,3 +433,9 @@ Use the optional [.test and lab Root CA profile](Docs/LOCAL-LAB-TLS.md).
 Local preparation creates no Azure resources. Key Vault import and subsequent
 deployment are separate, explicitly cost-bearing steps. All generated PKI and
 site-specific configuration stay under ignored `.local`.
+
+## SQL Server Developer lab installation
+
+For SQL Server 2022 Developer on Windows Server 2025, see
+[SQL Developer media preparation](Docs/SQL-DEVELOPER.md). Local preparation
+downloads and pins the complete media; the later Azure installation is billable.

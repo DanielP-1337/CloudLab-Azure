@@ -1,0 +1,23 @@
+name: Public source checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Public source and history
+        run: |
+          python3 Scripts/check_public.py
+          python3 Scripts/check_public.py --history
+      - name: Offline behavior tests
+        run: python3 -m unittest discover -s Tests -p 'test_*.py' -v
+      - name: PowerShell parser
+        shell: pwsh
+        run: |
+          ./Tests/Test-Project.ps1
+          ./Tests/Test-Safety.ps1

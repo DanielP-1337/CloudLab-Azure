@@ -1,0 +1,265 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string"
+    },
+    "prefix": {
+      "type": "string"
+    },
+    "vnetName": {
+      "type": "string"
+    },
+    "appHost": {
+      "type": "string"
+    },
+    "authHost": {
+      "type": "string"
+    },
+    "backendIp": {
+      "type": "string"
+    },
+    "certificateSecretUri": {
+      "type": "string"
+    },
+    "identityId": {
+      "type": "string"
+    },
+    "capacity": {
+      "type": "int",
+      "minValue": 2,
+      "defaultValue": 2
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-09-01",
+      "name": "[concat(parameters('prefix'), '-ingress-ip')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static"
+      }
+    },
+    {
+      "type": "Microsoft.Network/applicationGateways",
+      "apiVersion": "2023-09-01",
+      "name": "[concat(parameters('prefix'), '-gateway')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', concat(parameters('prefix'), '-ingress-ip'))]"
+      ],
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[parameters('identityId')]": {}
+        }
+      },
+      "properties": {
+        "sku": {
+          "name": "WAF_v2",
+          "tier": "WAF_v2",
+          "capacity": "[parameters('capacity')]"
+        },
+        "enableHttp2": true,
+        "gatewayIPConfigurations": [
+          {
+            "name": "gateway-ip",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'AppGatewaySubnet')]"
+              }
+            }
+          }
+        ],
+        "frontendIPConfigurations": [
+          {
+            "name": "public",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(parameters('prefix'), '-ingress-ip'))]"
+              }
+            }
+          }
+        ],
+        "frontendPorts": [
+          {
+            "name": "https",
+            "properties": {
+              "port": 443
+            }
+          }
+        ],
+        "sslCertificates": [
+          {
+            "name": "tls",
+            "properties": {
+              "keyVaultSecretId": "[parameters('certificateSecretUri')]"
+            }
+          }
+        ],
+        "sslPolicy": {
+          "policyType": "Predefined",
+          "policyName": "AppGwSslPolicy20220101S"
+        },
+        "backendAddressPools": [
+          {
+            "name": "auth-vm",
+            "properties": {
+              "backendAddresses": [
+                {
+                  "ipAddress": "[parameters('backendIp')]"
+                }
+              ]
+            }
+          }
+        ],
+        "backendHttpSettingsCollection": [
+          {
+            "name": "app",
+            "properties": {
+              "port": 8443,
+              "protocol": "Https",
+              "cookieBasedAffinity": "Disabled",
+              "hostName": "[parameters('appHost')]",
+              "requestTimeout": 120,
+              "probe": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/probes/app')]"
+              }
+            }
+          },
+          {
+            "name": "auth",
+            "properties": {
+              "port": 8443,
+              "protocol": "Https",
+              "cookieBasedAffinity": "Disabled",
+              "hostName": "[parameters('authHost')]",
+              "requestTimeout": 120,
+              "probe": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/probes/auth')]"
+              }
+            }
+          }
+        ],
+        "httpListeners": [
+          {
+            "name": "app",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/frontendIPConfigurations/public')]"
+              },
+              "frontendPort": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/frontendPorts/https')]"
+              },
+              "protocol": "Https",
+              "hostName": "[parameters('appHost')]",
+              "requireServerNameIndication": true,
+              "sslCertificate": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/sslCertificates/tls')]"
+              }
+            }
+          },
+          {
+            "name": "auth",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/frontendIPConfigurations/public')]"
+              },
+              "frontendPort": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/frontendPorts/https')]"
+              },
+              "protocol": "Https",
+              "hostName": "[parameters('authHost')]",
+              "requireServerNameIndication": true,
+              "sslCertificate": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/sslCertificates/tls')]"
+              }
+            }
+          }
+        ],
+        "requestRoutingRules": [
+          {
+            "name": "app",
+            "properties": {
+              "ruleType": "Basic",
+              "priority": 100,
+              "httpListener": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/httpListeners/app')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/backendAddressPools/auth-vm')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/backendHttpSettingsCollection/app')]"
+              }
+            }
+          },
+          {
+            "name": "auth",
+            "properties": {
+              "ruleType": "Basic",
+              "priority": 101,
+              "httpListener": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/httpListeners/auth')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/backendAddressPools/auth-vm')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', concat(parameters('prefix'), '-gateway')), '/backendHttpSettingsCollection/auth')]"
+              }
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "app",
+            "properties": {
+              "protocol": "Https",
+              "host": "[parameters('appHost')]",
+              "path": "/_gateway_health",
+              "interval": 30,
+              "timeout": 20,
+              "unhealthyThreshold": 3,
+              "match": {
+                "statusCodes": [
+                  "200"
+                ]
+              }
+            }
+          },
+          {
+            "name": "auth",
+            "properties": {
+              "protocol": "Https",
+              "host": "[parameters('authHost')]",
+              "path": "/_gateway_health",
+              "interval": 30,
+              "timeout": 20,
+              "unhealthyThreshold": 3,
+              "match": {
+                "statusCodes": [
+                  "200"
+                ]
+              }
+            }
+          }
+        ],
+        "webApplicationFirewallConfiguration": {
+          "enabled": true,
+          "firewallMode": "Prevention",
+          "ruleSetType": "OWASP",
+          "ruleSetVersion": "3.2",
+          "requestBodyCheck": true,
+          "maxRequestBodySizeInKb": 128,
+          "fileUploadLimitInMb": 100
+        }
+      }
+    }
+  ]
+}

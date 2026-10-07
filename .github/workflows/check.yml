@@ -22,3 +22,4 @@ jobs:
           ./Tests/Test-Project.ps1
           ./Tests/Test-Safety.ps1
           ./Tests/Test-ComputeDisks.ps1
+          ./Tests/Test-HealthRelease.ps1

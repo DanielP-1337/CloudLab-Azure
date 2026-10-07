@@ -7,3 +7,10 @@ if (-not (Test-NetConnection -ComputerName $CL.Sql.Ip -Port $CL.Sql.Port -Inform
 foreach ($name in $CL.App.WriterServices) {
     if ((Get-Service $name).Status -ne 'Running') { throw "Writer service is stopped: $name" }
 }
+
+if ($CL.App.PSObject.Properties['Provider'] -and $CL.App.Provider -eq 'InfrastructureHealth') {
+    $response = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:8080/App/health/'
+    if ($response.StatusCode -ne 200) { throw 'Health dashboard HTTP check failed.' }
+    $task = Get-ScheduledTask -TaskName 'Infrastructure Health & Benchmark Diagnostics' -ErrorAction Stop
+    if ($task.State -eq 'Disabled') { throw 'Health diagnostics task is disabled.' }
+}

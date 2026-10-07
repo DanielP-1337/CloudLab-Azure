@@ -419,3 +419,10 @@ Backup vaults can block deletion or leave retained data. For production, design
 those separately rather than weakening protection to emulate a container cleanup.
 The source has no fixed private IDs/names, but your own changes still need review.
 See `Docs/VALIDATION.md` and `Docs/SOURCES.md` for test limits and references.
+
+## Infrastructure Health & Benchmark integration
+
+An opt-in generic IIS smoke-test application can be installed from a verified
+GitHub Release. Prepare a local version lock before deployment; subsequent
+deployments reuse that lock. See [Health integration](Docs/HEALTH-INTEGRATION.md)
+for setup, trust boundaries, remaining SQL/identity prerequisites, and costs.

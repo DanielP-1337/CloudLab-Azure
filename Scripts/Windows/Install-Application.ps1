@@ -4,10 +4,14 @@ if (-not $result.Success -or [string]$result.RestartNeeded -eq 'Yes') { throw 'I
 Import-Module WebAdministration
 New-Item -ItemType Directory -Path $CL.App.ImagePath -Force | Out-Null
 New-Item -ItemType Directory -Path $CL.App.SitePath -Force | Out-Null
+if ($CL.App.PSObject.Properties['Provider'] -and $CL.App.Provider -eq 'InfrastructureHealth') {
+    Install-CLHealthApplication
+} else {
 if (-not (Test-Path -LiteralPath $CL.App.InstallerPath)) { throw 'Stage the reviewed CloudLab installer wrapper first.' }
 if ((Get-FileHash -LiteralPath $CL.App.InstallerPath -Algorithm SHA256).Hash -ne $CL.App.InstallerSha256) { throw 'CloudLab installer checksum mismatch.' }
 # The wrapper contract is documented; it must throw on failures, including native exit codes.
 & $CL.App.InstallerPath -Configuration $CL
+}
 if (-not (Test-Path "IIS:\AppPools\$($CL.App.AppPoolName)")) { throw 'Vendor wrapper must create the configured app pool.' }
 if (-not (Test-Path "IIS:\Sites\$($CL.App.SiteName)")) { throw 'Vendor wrapper must create the configured IIS site.' }
 $pfxText = Get-CLSecret $CL.VaultName $CL.CertificateSecret

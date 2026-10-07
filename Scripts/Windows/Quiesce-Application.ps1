@@ -11,8 +11,21 @@ $state = @{
     PoolWasStarted=((Get-WebAppPoolState -Name $CL.App.AppPoolName).Value -eq 'Started')
     Services=@($services | Where-Object Status -eq 'Running' | Select-Object -ExpandProperty Name)
 }
+if ($CL.App.PSObject.Properties['Provider'] -and $CL.App.Provider -eq 'InfrastructureHealth') {
+    $task = Get-ScheduledTask -TaskName 'Infrastructure Health & Benchmark Diagnostics' -ErrorAction Stop
+    $state.HealthTaskEnabled = ($task.State -ne 'Disabled')
+}
 # Write BEFORE stopping anything, so partial failures can be resumed.
 $state | ConvertTo-Json -Depth 5 | Set-Content $statePath -Encoding UTF8
+if ($state.ContainsKey('HealthTaskEnabled')) {
+    Disable-ScheduledTask -TaskName 'Infrastructure Health & Benchmark Diagnostics' | Out-Null
+    Stop-ScheduledTask -TaskName 'Infrastructure Health & Benchmark Diagnostics'
+    $deadline = (Get-Date).AddMinutes(2)
+    while ((Get-ScheduledTask -TaskName 'Infrastructure Health & Benchmark Diagnostics').State -eq 'Running') {
+        if ((Get-Date) -gt $deadline) { throw 'Health task did not stop; export aborted.' }
+        Start-Sleep -Seconds 2
+    }
+}
 Stop-Website -Name $state.Site
 if ($state.PoolWasStarted) { Stop-WebAppPool -Name $state.Pool }
 foreach ($service in $services) {

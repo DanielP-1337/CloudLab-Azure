@@ -40,6 +40,7 @@
         ClientSecret = 'identity-client-secret'; CookieSecret = 'proxy-cookie-secret'
     }
     App = @{
+        Provider = 'Custom' # Or InfrastructureHealth; see Docs/HEALTH-INTEGRATION.md
         Name = 'lab-app'; Size = 'Standard_D2as_v6'; Ip = '10.40.2.10'
         OsDiskType = 'StandardSSD_LRS'; DataDiskType = 'Standard_LRS' # Image files on HDD
         Publisher = 'MicrosoftWindowsServer'; Offer = 'WindowsServer'; Sku = '2025-datacenter-g2'

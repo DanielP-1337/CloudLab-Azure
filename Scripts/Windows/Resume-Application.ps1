@@ -6,4 +6,7 @@ if ($state.BackupSetId -ne $CL.BackupSetId) { throw 'Maintenance backup-set ID m
 foreach ($service in $state.Services) { Start-Service -Name $service -ErrorAction Stop }
 if ($state.PoolWasStarted -and (Get-WebAppPoolState $state.Pool).Value -ne 'Started') { Start-WebAppPool -Name $state.Pool }
 if ($state.SiteWasStarted -and (Get-Website -Name $state.Site).State -ne 'Started') { Start-Website -Name $state.Site }
+if ($state.PSObject.Properties['HealthTaskEnabled'] -and $state.HealthTaskEnabled) {
+    Enable-ScheduledTask -TaskName 'Infrastructure Health & Benchmark Diagnostics' | Out-Null
+}
 Remove-Item -LiteralPath $statePath

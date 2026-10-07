@@ -2,6 +2,9 @@ $ErrorActionPreference = 'Stop'
 function Invoke-CLWindowsScript {
     param($Config,[string]$ProjectRoot,[string]$ScriptName,[string]$VM)
     $script = Get-CLGuestPayload $Config "$ProjectRoot/Scripts/Windows/Common.ps1" Windows
+    if ($ScriptName -eq 'Install-Application.ps1' -and $Config.App.ContainsKey('Provider') -and $Config.App.Provider -eq 'InfrastructureHealth') {
+        $script += "`nfunction Install-CLHealthApplication {`n" + (Get-Content -Raw "$ProjectRoot/Scripts/Windows/Install-HealthApplication.ps1") + "`n}`n"
+    }
     $script += "`n" + (Get-Content -Raw "$ProjectRoot/Scripts/Windows/$ScriptName")
     Invoke-CLGuest $Config $VM $script Windows
 }
@@ -13,7 +16,18 @@ function Deploy-CLSql {
 }
 function Deploy-CLApplication {
     param($Config,[string]$ProjectRoot)
-    Assert-CLValue $Config.App.InstallerSha256 'App.InstallerSha256' '^[a-fA-F0-9]{64}$'
+    if ($Config.App.ContainsKey('Provider') -and $Config.App.Provider -eq 'InfrastructureHealth') {
+        Import-Module "$ProjectRoot/Modules/CloudLab.Azure/HealthRelease.psm1" -Force
+        $lockPath = Join-Path $ProjectRoot '.local/releases/health-release.json'
+        if (-not (Test-Path -LiteralPath $lockPath)) { throw 'Run Scripts/Prepare-HealthRelease.ps1 before deployment.' }
+        $release = Get-Content -Raw -LiteralPath $lockPath | ConvertFrom-Json
+        Assert-CLHealthRelease $release
+        if ($Config.App.HealthPath -ne '/App/health/') { throw 'Set App.HealthPath to /App/health/.' }
+        if (@($Config.App.WriterServices).Count -ne 0) { throw 'The generic health app has no writer services. Set App.WriterServices to @().' }
+        $Config.App.HealthRelease = $release
+    } elseif (-not $Config.App.ContainsKey('Provider') -or $Config.App.Provider -eq 'Custom') {
+        Assert-CLValue $Config.App.InstallerSha256 'App.InstallerSha256' '^[a-fA-F0-9]{64}$'
+    } else { throw 'Unknown App.Provider. Use Custom or InfrastructureHealth.' }
     Invoke-CLWindowsScript $Config $ProjectRoot 'Install-Application.ps1' $Config.App.Name
 }
 Export-ModuleMember -Function *-CL*

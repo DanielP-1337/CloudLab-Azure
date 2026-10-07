@@ -7,11 +7,13 @@
 Config/acceptance.example.ps1
 Config/lab.example.psd1
 Config/sql-export.example.ps1
+Docs/HEALTH-INTEGRATION.md
 Docs/PUBLICATION.md
 Docs/SOURCES.md
 Docs/VALIDATION.md
 Modules/CloudLab.Azure/Common.psm1
 Modules/CloudLab.Azure/Compute.psm1
+Modules/CloudLab.Azure/HealthRelease.psm1
 Modules/CloudLab.Azure/KeyVault.psm1
 Modules/CloudLab.Azure/Keycloak.psm1
 Modules/CloudLab.Azure/Lifecycle.psm1
@@ -34,11 +36,13 @@ Scripts/Initialize-Local.ps1
 Scripts/Linux/Export-Files.sh
 Scripts/Linux/Install-Keycloak.sh
 Scripts/Linux/Test-Keycloak.sh
+Scripts/Prepare-HealthRelease.ps1
 Scripts/Set-SmokeTestConfig.ps1
 Scripts/Windows/Backup-Sql.ps1
 Scripts/Windows/Common.ps1
 Scripts/Windows/Export-Files.ps1
 Scripts/Windows/Install-Application.ps1
+Scripts/Windows/Install-HealthApplication.ps1
 Scripts/Windows/Install-Sql.ps1
 Scripts/Windows/Quiesce-Application.ps1
 Scripts/Windows/Quiesce-Sql.ps1
@@ -49,6 +53,7 @@ Scripts/Windows/Test-Sql.ps1
 Scripts/check_public.py
 Templates/gateway.json
 Tests/Test-ComputeDisks.ps1
+Tests/Test-HealthRelease.ps1
 Tests/Test-Project.ps1
 Tests/Test-Safety.ps1
 Tests/test_publication.py

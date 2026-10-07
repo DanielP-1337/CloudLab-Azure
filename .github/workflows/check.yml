@@ -25,3 +25,4 @@ jobs:
           ./Tests/Test-HealthRelease.ps1
           ./Tests/Test-LabTls.ps1
           ./Tests/Test-SqlDeveloperMedia.ps1
+          ./Tests/Test-HealthSql.ps1

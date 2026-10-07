@@ -14,3 +14,12 @@ if ($CL.App.PSObject.Properties['Provider'] -and $CL.App.Provider -eq 'Infrastru
     $task = Get-ScheduledTask -TaskName 'Infrastructure Health & Benchmark Diagnostics' -ErrorAction Stop
     if ($task.State -eq 'Disabled') { throw 'Health diagnostics task is disabled.' }
 }
+
+if ($CL.PSObject.Properties['HealthSql'] -and $CL.HealthSql.Enabled) {
+    $probe=Join-Path $env:ProgramData 'InfrastructureHealthBenchmark/Engine/Test-InfrastructureOdbc.ps1'
+    $exe=Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    $answer=(& $exe -NoProfile -NonInteractive -File $probe | Out-String) | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0 -or -not $answer.available -or $answer.authentication -ne 'SQL login / verified TLS') {
+        throw 'Health application SQL connection did not pass the verified TLS probe.'
+    }
+}

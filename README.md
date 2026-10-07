@@ -439,3 +439,11 @@ site-specific configuration stay under ignored `.local`.
 For SQL Server 2022 Developer on Windows Server 2025, see
 [SQL Developer media preparation](Docs/SQL-DEVELOPER.md). Local preparation
 downloads and pins the complete media; the later Azure installation is billable.
+
+## Health application SQL connection
+
+The optional [health SQL adapter](Docs/HEALTH-SQL.md) prepares a separate lab SQL
+certificate and configures an isolated synthetic database, a restricted SQL login,
+and verified TLS ODBC probes. Passwords are fetched at runtime through the app
+VM managed identity. Local preparation is free of Azure operations; import and
+guest configuration require explicit billable-operation switches.

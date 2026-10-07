@@ -70,3 +70,12 @@ Docs/SQL-DEVELOPER.md
 Scripts/Prepare-SqlDeveloperMedia.ps1
 Scripts/Windows/SqlDeveloperMedia.ps1
 Tests/Test-SqlDeveloperMedia.ps1
+Modules/CloudLab.Azure/HealthSql.psm1
+Scripts/Initialize-HealthSql.ps1
+Scripts/Windows/Configure-HealthSqlServer.ps1
+Scripts/Windows/Configure-HealthSqlClient.ps1
+Scripts/Windows/Invoke-HealthSqlProbe.ps1
+Runbooks/Configure-HealthSql.ps1
+Runbooks/Import-HealthSqlSecrets.ps1
+Tests/Test-HealthSql.ps1
+Docs/HEALTH-SQL.md

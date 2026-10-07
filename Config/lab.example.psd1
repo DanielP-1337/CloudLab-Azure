@@ -1,4 +1,5 @@
 @{
+    HealthSql = @{ Enabled = $false } # See Docs/HEALTH-SQL.md.
     # Copy with Scripts/Initialize-Local.ps1. Never edit this public template.
     SubscriptionId = 'REPLACE-subscription-guid'
     TenantId = 'REPLACE-tenant-guid'

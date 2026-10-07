@@ -83,115 +83,156 @@ Key Vault, a backup vault, or the subscription. Retained storage/transactions an
 any manually created resources can still cost money. There is no automatic
 spending cap or scheduled teardown. Resource creation is staged explicitly.
 
-## Estimated cost of a smoke-test environment
+## Frankfurt smoke-test sizing and cost estimate
 
-Planning estimate dated **October 7, 2026**, for **Australia East**, in **EUR
-before taxes**, assuming **730 provisioned hours per month** and pay-as-you-go
-pricing. No reservations, savings plans, Spot pricing, Windows Azure Hybrid
-Benefit, promotional credits, or free-tier allowances are deducted.
+The generic example now targets **Germany West Central (Frankfurt)**,
+`germanywestcentral`, with three `Standard_D2as_v6` VMs (2 vCPUs / 8 GiB each).
+This is a proof-of-principle starting point for approximately 10 concurrent test
+users, not a production sizing guarantee. Confirm your own subscription's image
+availability, regional and VM-family quotas, and SKU restrictions. Six free vCPUs
+are needed regionally and in the selected family. No availability zone is pinned.
+A restriction on zone 3 is different from a restriction on the entire region;
+actual allocation can still fail due to capacity or policy.
 
-This estimate describes a **proposed smaller test configuration**, not the
-current example defaults or a production capacity guarantee. The intended initial
-workload is a proof of principle and smoke test with approximately 10 concurrent
-test users. Actual capacity depends on application behavior and test data.
+### VM price comparison
 
-- Keycloak, local PostgreSQL, and the authentication proxy: one Linux
-  `Standard_D2s_v4` VM, 2 vCPUs and 8 GiB RAM.
-- IIS/application: one Windows Server 2025 `Standard_D2s_v4` VM, 2 vCPUs and 8 GiB RAM.
-- SQL Server: one Windows Server 2025 `Standard_D2s_v4` VM, 2 vCPUs and 8 GiB RAM.
-- Windows Server licensing is included in both Windows VM rates.
-- SQL Server is installed from separately supplied media. The estimate assumes
-  an existing license valid for this Azure deployment (BYOL), with no additional
-  SQL license charge. It does not establish license eligibility or include any
-  existing license or Software Assurance costs.
-- Three 128 GiB Premium SSD LRS OS disks and two 32 GiB Premium SSD LRS data disks.
-- The existing network design, including Standard NAT Gateway, two Standard
-  public IPv4 addresses, and Application Gateway WAF_v2 with two fixed instances.
+Public retail prices retrieved **October 7, 2026**, in EUR before taxes for
+Frankfurt, at **730 hours/month**, pay-as-you-go. Windows Server licensing is
+included in the Windows rate. No reservations, savings plans, Spot pricing,
+Windows Hybrid Benefit, promotional credit, or free-tier benefits are deducted.
 
-| Component | Calculation or assumption | Estimated EUR/month |
+| VM size (2 vCPUs / 8 GiB) | Linux EUR/hour | Windows EUR/hour | One Linux + two Windows VMs per month |
+|---|---:|---:|---:|
+| **Standard_D2as_v6 (selected)** | **0.0968** | **0.1778** | **EUR 330.25** |
+| Standard_D2s_v6 | 0.1065 | 0.1874 | EUR 351.35 |
+| Standard_F2as_v6 | 0.1452 | 0.2262 | EUR 436.25 |
+
+D2as_v6 is the lowest-cost choice among these three checked candidates. The
+comparison is not an exhaustive comparison of all Azure SKUs. These are x64
+candidates; architecture compatibility and workload performance still need tests.
+
+### Configurable disk types
+
+Each role explicitly specifies `OsDiskType`; App and Sql additionally specify
+`DataDiskType`. Supported values are `Standard_LRS` (HDD), `StandardSSD_LRS`
+(Standard SSD), and `Premium_LRS` (Premium SSD). Premium is optional, not a
+prerequisite for the lab. A VM's `PremiumIO` capability does not select its disk
+type. Premium SSD v2, Ultra Disk, and ZRS are outside this implementation.
+
+| Role / volume | Default type | Provisioned size |
 |---|---|---:|
-| Keycloak Linux VM | EUR 0.1056/hour x 730 | 77.09 |
-| Application Windows VM | EUR 0.1866/hour x 730, Windows license included | 136.22 |
-| SQL Windows VM | EUR 0.1866/hour x 730, Windows license included | 136.22 |
-| Additional SQL license charge | Assumed valid existing BYOL entitlement | 0.00 |
-| Three OS disks | 3 x 128 GiB Premium SSD LRS (P10) | 52.03 |
-| Two data disks | 2 x 32 GiB Premium SSD LRS (P4) | 9.29 |
-| Application Gateway WAF_v2 | Fixed charge plus 20 reserved capacity units | 520.71 |
-| Standard NAT Gateway | Provisional allowance for the hourly base charge | 30.00-40.00 |
+| All three OS disks | Standard SSD LRS | 128 GiB each |
+| App LUN 0: image files under `App.ImagePath` | Standard HDD LRS | **512 GiB** |
+| SQL LUN 0: test database storage | Standard SSD LRS | 32 GiB |
+
+The 512 GiB image disk accommodates an approximately 500 GB storage requirement
+and uses the S20 billing tier. Filesystem overhead reduces usable space. The
+image directory stays on the configured data drive (initially `F:\AppData`).
+The Keycloak/PostgreSQL data remains on its OS disk. SQL's initial memory cap is
+4096 MiB to leave room for Windows and other SQL allocations.
+
+Disk type and size are checked against actual managed disks when reusing an
+existing VM. A mismatch stops deployment: the script does not convert, shrink,
+or migrate disks. Back up and plan existing-resource migrations separately.
+
+### Complete environment baseline
+
+SQL Server is installed from separately supplied media. The following assumes
+an existing SQL license valid for this Azure deployment (BYOL), with zero
+additional SQL license charge. It does not establish license eligibility or
+include existing license or Software Assurance costs.
+
+| Component | Assumption | Estimated EUR/month |
+|---|---|---:|
+| Keycloak Linux VM | D2as_v6, 730 hours | 70.66 |
+| IIS/application Windows VM | D2as_v6, Windows license included | 129.79 |
+| SQL Windows VM | D2as_v6, Windows license included; SQL BYOL | 129.79 |
+| Three OS disks | 3 x E10 LRS, 128 GiB Standard SSD | 25.34 |
+| SQL data disk | E4 LRS, 32 GiB Standard SSD | 2.11 |
+| Image data disk | S20 LRS, 512 GiB Standard HDD | 19.15 |
+| Application Gateway WAF_v2 | Fixed cost plus 20 reserved capacity units | 416.68 |
+| Standard NAT Gateway | Provisional allowance for hourly base charge | 30.00-40.00 |
 | Two Standard public IPv4 addresses | 2 x EUR 0.0044/hour x 730 | 6.42 |
-| Key Vault and small retained export storage | Planning allowance, usage dependent | 2.00-10.00 |
-| **Rounded baseline total** | **Low traffic; exclusions below** | **970-990** |
+| Key Vault and small retained export storage | Usage-dependent planning allowance | 2.00-10.00 |
+| **Rounded baseline** | **Before variable usage and taxes** | **830-850** |
 
-Use approximately **EUR 1,000/month before taxes** as a baseline planning figure,
-not a spending cap. VM compute including Windows licensing accounts for about
-EUR 350/month. The NAT amount and retained-service allowance are estimates;
-VM, disk, Application Gateway, and public IP figures were retrieved from the
-[Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)
-using `currencyCode='EUR'`, `armRegionName='australiaeast'`, and consumption
-pricing. Prices and exchange rates can change; confirm the current estimate in
-the [Azure Pricing Calculator](https://azure.microsoft.com/en-us/pricing/calculator/)
-before deployment. Actual account pricing and invoices take precedence.
+Use approximately **EUR 850/month before taxes** as a baseline planning figure,
+not a spending cap. The disk amounts are capacity charges only. Standard SSD
+E4/E10 operations were quoted at EUR 0.0018 per 10,000 transactions; Standard HDD
+S20 operations at EUR 0.0004 per 10,000 transactions. Meter-specific transaction
+sizes and caps apply. Image access can generate substantial I/O; HDD is cheaper
+in provisioned capacity but must be tested for acceptable viewer responsiveness.
+See [disk billing](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-understand-billing).
 
-### Why the gateway dominates the estimate
-
-The current `GatewayCapacity = 2` configuration reserves at least **20 capacity
-units**: 10 per instance. They are billed while the gateway is active even when
-traffic is low. Using the retrieved regional rates:
+The existing gateway configuration still reserves two instances, or at least
+20 capacity units. Its Frankfurt baseline is:
 
 ```text
-(EUR 0.4593 fixed/hour + 20 x EUR 0.0127 per capacity-unit/hour)
-x 730 hours = EUR 520.71/month
+(EUR 0.3168 fixed/hour + 20 x EUR 0.0127 per capacity-unit/hour)
+x 730 hours = EUR 416.68/month
 ```
 
-Higher actual capacity-unit consumption can increase this amount. See
-[Application Gateway billing](https://learn.microsoft.com/en-us/azure/application-gateway/understanding-pricing).
-This gateway capacity is substantial for a small smoke test.
+Reserved capacity is billed even at low traffic. Higher capacity usage can add
+charges. See [Application Gateway billing](https://learn.microsoft.com/en-us/azure/application-gateway/understanding-pricing).
+A dedicated mode without this gateway is **not implemented**. Skipping its stage
+does not create an alternative secure public access path.
 
-### Short test windows
+### Short test windows and exclusions
 
-If all estimated components exist only for the test window and the ephemeral
-resources are successfully deleted afterward, approximate low-traffic costs are:
-
-| Total provisioned time, including setup and troubleshooting | Estimated cost before taxes |
+| Total provisioned time, including installation and troubleshooting | Approximate baseline before variable usage and taxes |
 |---|---:|
-| 8 hours | EUR 11 |
-| 24 hours | EUR 32 |
-| 7 days (168 hours) | EUR 225 |
+| 8 hours | EUR 9-10 |
+| 24 hours | EUR 27-28 |
+| 7 days (168 hours) | EUR 191-196 |
 
-These are rounded prorated planning estimates, not billing guarantees. Meter
-rounding and deployment/deletion times affect actual charges. Retained exports
-and Key Vault can continue to incur charges after `Destroy`. Stopping services
-inside a VM is not a substitute for the documented export and teardown lifecycle.
+These are rounded prorated estimates, not billing guarantees. Meter rounding,
+deployment/deletion time, disk transactions, NAT data processing, outbound data
+transfer, gateway capacity beyond the reserved minimum, and larger retained
+exports add cost. External domains/certificates, paid support, and separately
+enabled monitoring/security/backup services are excluded. The retained-storage
+allowance is for small test exports, **not a 500 GB backup**.
 
-The baseline excludes variable outbound data transfer, NAT data processing,
-gateway capacity above the reserved minimum, large export volumes, domain and
-certificate purchases, paid support, and separately enabled monitoring, backup,
-or security services. The retained-service allowance assumes only small test
-exports and low transaction volume.
+**Disk capacity does not increase export capacity.** The current export mechanism
+still limits each VM archive to 512 MiB. Use small disposable test datasets and
+explicit export allowlists; do not assume this lifecycle backs up or restores a
+500 GB image collection. Exporting that volume requires a separate streaming or
+snapshot design before placing important data in this lab.
 
-### Configuration and cost-control implications
+Prices for VMs, disk capacity/operations, gateway, and IPs were retrieved from the
+[Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)
+with `currencyCode='EUR'`, `armRegionName='germanywestcentral'`, and consumption
+pricing. NAT and retained-service figures remain allowances, not verified quotes.
+Confirm current prices in the [Azure Pricing Calculator](https://azure.microsoft.com/en-us/pricing/calculator/);
+actual account pricing and invoices take precedence. This Frankfurt estimate
+supersedes the previous Australia East/Premium-disk scenario.
 
-This README section **does not change deployment defaults**. The current public
-example still specifies Dsv5 VM sizes, 4-vCPU application/SQL VMs, 128 GiB data
-disks, and `Sql.MaxMemoryMB = 8192`. Applying this smaller scenario requires
-reviewed changes in `.local/config/lab.psd1`: all three VM sizes to
-`Standard_D2s_v4`, application/SQL data disks to 32 GiB, and an initial SQL
-`MaxMemoryMB` of 4096. Keep each OS disk at the 128 GiB currently specified by the
-compute module. Confirm image compatibility, regional SKU availability, and both
-regional and VM-family quotas before provisioning; the proposed VMs need 6 vCPUs
-in total. Benchmark before making production sizing decisions.
+### Apply the profile to an existing local configuration
 
-A future dedicated smoke-test mode could omit Application Gateway WAF_v2 except
-for its integration test, reducing the arithmetic baseline to roughly
-**EUR 450-470/month** with other assumptions unchanged. **That mode and its
-alternative secure access path are not implemented.** Merely skipping the Gateway
-stage does not provide a working replacement for public HTTPS ingress. Any access
-redesign needs its own review and cost estimate.
+Updating the public example does not overwrite `.local/config/lab.psd1`. For an
+initialized lab that has **never been deployed**, use this local-only helper:
 
-For the existing design, prepare prerequisites before starting billable stages,
-keep the complete environment alive only for the required test window, export
-results, and verify cleanup. There is no automatic budget enforcement or scheduled
-teardown in this project.
+```powershell
+# LOCAL ONLY: these commands do not call Azure or create billable resources.
+.\Scripts\Set-SmokeTestConfig.ps1 -WhatIf
+.\Scripts\Set-SmokeTestConfig.ps1
+.\Tests\Test-ComputeDisks.ps1
+```
+
+The helper uses the PowerShell parser to change only region, VM sizes, disk types,
+data disk sizes, and SQL memory. It backs up the original under `.local/config`,
+validates the result, and retains all other values, including IDs, domains, secret
+names, and resource-group names. An existing resource-group name containing `au`
+is just a name; this helper does not rename it. It refuses to run if lifecycle
+state files exist. Do not remove state to bypass that guard or use this helper to
+move deployed resources between regions.
+
+**COST NOTICE:** Real deployment stages can create billable Azure resources.
+`Deploy-Lab.ps1` prints a warning before connecting. Bootstrap can incur storage
+and Key Vault charges; Egress, Compute, and Gateway create ongoing charges.
+`-EnableBillableResources` is an explicit gate, not a cost estimate or spending cap.
+Prepare prerequisites first, run only the required test window, export results,
+and verify Destroy. Retained resources can continue to cost money after teardown;
+no automatic budget enforcement or scheduled teardown is provided.
 
 ## Dependencies and identity
 

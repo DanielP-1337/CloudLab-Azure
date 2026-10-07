@@ -14,7 +14,24 @@ function Read-CLConfig {
     Assert-CLValue $c.Export.StorageAccount 'Export.StorageAccount' '^[a-z0-9]{3,24}$'
     Assert-CLValue $c.Export.Container 'Export.Container' '^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$'
     if ($c.Backup.Enabled) { throw 'Disposable mode does not enable Recovery Services. Use retained exports; see documentation.' }
+    foreach ($role in 'Keycloak','App','Sql') { Get-CLDiskSettings $c $role | Out-Null }
     return $c
+}
+function Get-CLDiskSettings {
+    param($Config,[ValidateSet('Keycloak','App','Sql')][string]$Role)
+    $spec = $Config[$Role]
+    $allowed = @('Standard_LRS','StandardSSD_LRS','Premium_LRS')
+    if (-not $spec.ContainsKey('OsDiskType') -or $spec.OsDiskType -notin $allowed) {
+        throw "Set $Role.OsDiskType to Standard_LRS, StandardSSD_LRS, or Premium_LRS. Review the local config upgrade instructions."
+    }
+    if ($Role -ne 'Keycloak') {
+        if (-not $spec.ContainsKey('DataDiskType') -or $spec.DataDiskType -notin $allowed) { throw "Set a supported $Role.DataDiskType." }
+        $size = 0
+        if (-not [int]::TryParse([string]$spec.DiskGB, [ref]$size) -or $size -lt 32 -or $size -gt 32767) {
+            throw "Set $Role.DiskGB to an integer from 32 to 32767."
+        }
+    }
+    return @{ OsDiskType = $spec.OsDiskType; DataDiskType = $(if ($Role -ne 'Keycloak') { $spec.DataDiskType } else { $null }) }
 }
 function Connect-CLAzure {
     param($Config,[switch]$Interactive)

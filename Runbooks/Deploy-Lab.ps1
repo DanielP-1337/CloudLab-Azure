@@ -4,6 +4,7 @@ param(
  [ValidateSet('Bootstrap','Network','Egress','Compute','Gateway','Sql','Application','Identity','All')][string]$Stage='Bootstrap',
  [switch]$Interactive,[switch]$EnableBillableResources
 )
+Write-Warning 'COST NOTICE: Deployment can create billable Azure resources. Bootstrap can incur storage/Key Vault charges; Egress, Compute and Gateway incur ongoing charges. No spending cap or automatic teardown is provided.'
 . "$PSScriptRoot/Initialize.ps1"
 $lease=Enter-CLLifecycleLock $Config $ProjectRoot
 try {

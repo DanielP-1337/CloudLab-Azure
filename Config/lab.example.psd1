@@ -6,7 +6,7 @@
     Environment = 'sandbox'
     ResourceGroup = 'REPLACE-test-resource-group'
     SharedResourceGroup = 'REPLACE-retained-resource-group'
-    Location = 'australiaeast'
+    Location = 'germanywestcentral'
     Prefix = 'lab'
     VNetName = 'lab-vnet'
     AddressSpace = '10.40.0.0/16'
@@ -29,7 +29,8 @@
     BackendHost = 'REPLACE-backend.example.com'
     GatewayCapacity = 2
     Keycloak = @{
-        Name = 'lab-auth'; Size = 'Standard_D2s_v5'; Ip = '10.40.4.10'
+        Name = 'lab-auth'; Size = 'Standard_D2as_v6'; Ip = '10.40.4.10'
+        OsDiskType = 'StandardSSD_LRS'
         Publisher = 'Canonical'; Offer = 'ubuntu-24_04-lts'; Sku = 'server'; ImageVersion = 'latest'
         Version = '26.8.0'; Sha256 = 'REPLACE-approved-sha256'
         ProxyVersion = '7.15.5'; ProxySha256 = 'REPLACE-approved-sha256'
@@ -39,9 +40,10 @@
         ClientSecret = 'identity-client-secret'; CookieSecret = 'proxy-cookie-secret'
     }
     App = @{
-        Name = 'lab-app'; Size = 'Standard_D4s_v5'; Ip = '10.40.2.10'
+        Name = 'lab-app'; Size = 'Standard_D2as_v6'; Ip = '10.40.2.10'
+        OsDiskType = 'StandardSSD_LRS'; DataDiskType = 'Standard_LRS' # Image files on HDD
         Publisher = 'MicrosoftWindowsServer'; Offer = 'WindowsServer'; Sku = '2025-datacenter-g2'
-        ImageVersion = 'latest'; DiskGB = 128; DriveLetter = 'F'
+        ImageVersion = 'latest'; DiskGB = 512; DriveLetter = 'F'
         InstallerPath = 'C:\LabSetup\Install-Application.ps1'
         InstallerSha256 = 'REPLACE-reviewed-sha256'
         SiteName = 'LabApp'; AppPoolName = 'LabApp'; SitePath = 'C:\inetpub\LabApp'
@@ -50,13 +52,14 @@
         QuiesceReviewed = $false
     }
     Sql = @{
-        Name = 'lab-sql'; Size = 'Standard_D4s_v5'; Ip = '10.40.3.10'
+        Name = 'lab-sql'; Size = 'Standard_D2as_v6'; Ip = '10.40.3.10'
+        OsDiskType = 'StandardSSD_LRS'; DataDiskType = 'StandardSSD_LRS'
         Publisher = 'MicrosoftWindowsServer'; Offer = 'WindowsServer'; Sku = '2025-datacenter-g2'
-        ImageVersion = 'latest'; DiskGB = 128; DriveLetter = 'F'
+        ImageVersion = 'latest'; DiskGB = 32; DriveLetter = 'F'
         SetupPath = 'C:\LabSetup\Sql\setup.exe'; SetupSha256 = 'REPLACE-approved-sha256'
         Instance = 'MSSQLSERVER'; MajorVersion = 16; Port = 1433
         Collation = 'REPLACE-approved-collation'; Databases = @('REPLACE-database')
-        MaxMemoryMB = 8192
+        MaxMemoryMB = 4096
     }
     Backup = @{
         Enabled = $false # Recovery Services is deliberately outside the disposable lifecycle.

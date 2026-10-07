@@ -153,6 +153,10 @@ function Assert-CLExport {
     if (-not $State.Export -or $State.Export.Status -ne 'Completed') { throw 'A completed export receipt is required.' }
     if ($State.Export.InventoryHash -ne (Get-CLInventoryHash $Inventory)) { throw 'Resource inventory changed after export. Export again.' }
     if ($State.Export.StorageAccount -ne $Config.Export.StorageAccount -or $State.Export.Container -ne $Config.Export.Container) { throw 'Export destination/config mismatch.' }
+    if ($Config.Export.ContainsKey('SqlMode') -and $Config.Export.SqlMode -eq 'HealthNative') {
+        if (-not $State.Export.ContainsKey('SqlMode') -or $State.Export.SqlMode -ne 'HealthNative' -or $State.Export.Mode -ne 'SelectedFiles' -or
+            @($State.Export.Blobs | Where-Object { $_.Blob -cmatch '/Sql\.zip$' }).Count -ne 1) { throw 'Native SQL export required. Destroy blocked.' }
+    }
     $context=Get-CLStorageContext $Config
     foreach ($receipt in $State.Export.Blobs) {
         $blob=Get-AzStorageBlob -Container $Config.Export.Container -Blob $receipt.Blob -Context $context
@@ -167,7 +171,11 @@ function Remove-CLExternalRoles {
     $storage=Get-AzStorageAccount -ResourceGroupName $Config.SharedResourceGroup -Name $Config.Export.StorageAccount
     $containerScope="$($storage.Id)/blobServices/default/containers/$($Config.Export.Container)"
     $secrets=@($Config.CertificateSecret,$Config.Keycloak.DbPasswordSecret,$Config.Keycloak.BootstrapPasswordSecret,$Config.Keycloak.ClientSecret,$Config.Keycloak.CookieSecret)
+    if ($Config.ContainsKey('HealthSql') -and $Config.HealthSql.Enabled) { $secrets+=@('health-sql-password','sql-health-tls','health-sql-dmk-password') }
     foreach ($principal in $State.Principals) {
+        $readers=@(Get-AzRoleAssignment -ObjectId $principal -Scope $containerScope -RoleDefinitionName 'Storage Blob Data Reader' | Where-Object Scope -eq $containerScope)
+        if ($readers.Count) { Remove-AzRoleAssignment -ObjectId $principal -Scope $containerScope -RoleDefinitionName 'Storage Blob Data Reader' | Out-Null }
+
         foreach ($scope in (@($secrets | ForEach-Object { "$($vault.ResourceId)/secrets/$_" }) + @($containerScope))) {
             $role=if ($scope -eq $containerScope) { 'Storage Blob Data Contributor' } else { 'Key Vault Secrets User' }
             $assignments=@(Get-AzRoleAssignment -ObjectId $principal -Scope $scope -RoleDefinitionName $role | Where-Object { $_.Scope -eq $scope })

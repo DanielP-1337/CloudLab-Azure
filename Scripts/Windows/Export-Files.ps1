@@ -1,7 +1,9 @@
 # Configuration contains only blob coordinates and file allowlists, never credentials.
 $ErrorActionPreference='Stop'
 $paths=if ($ExportRole -eq 'App') { @($CL.Export.AppPaths) } else { @($CL.Export.SqlPaths) }
-if ($ExportRole -eq 'Sql' -and $CL.Export.SqlPreparePath) {
+if ($ExportRole -eq 'Sql' -and $CL.Export.PSObject.Properties['SqlMode'] -and $CL.Export.SqlMode -eq 'HealthNative') {
+    $paths=@(New-CLHealthBackup)
+} elseif ($ExportRole -eq 'Sql' -and $CL.Export.SqlPreparePath) {
     if ((Get-FileHash -LiteralPath $CL.Export.SqlPreparePath -Algorithm SHA256).Hash -ne $CL.Export.SqlPrepareSha256) { throw 'SQL export wrapper checksum mismatch.' }
     & $CL.Export.SqlPreparePath -Configuration $CL
 }

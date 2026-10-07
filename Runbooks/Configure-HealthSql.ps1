@@ -20,7 +20,7 @@ try {
             $vm=Get-AzVM -ResourceGroupName $Config.ResourceGroup -Name $Config[$role].Name -ErrorAction Stop
             if (-not $vm.Identity.PrincipalId) { throw 'VM managed identity missing.' }
             $secrets=@($Config.HealthSql.PasswordSecret)
-            if ($role -eq 'Sql') { $secrets+=@($Config.HealthSql.CertificateSecret) }
+            if ($role -eq 'Sql') { $secrets+=@($Config.HealthSql.CertificateSecret,'health-sql-dmk-password') }
             Grant-CLSecretRead $vault.ResourceId $vm.Identity.PrincipalId $secrets
         }
         $server=Get-CLGuestPayload $Config "$ProjectRoot/Scripts/Windows/Common.ps1" Windows

@@ -2,12 +2,12 @@
 [CmdletBinding(SupportsShouldProcess)]
 param([Security.SecureString]$PfxPassword,[switch]$EnableBillableResources)
 $ErrorActionPreference='Stop'
-Write-Warning 'COST NOTICE: Imports a SQL certificate and creates a password in an existing Azure Key Vault. Key Vault storage and operations may incur charges.'
+Write-Warning 'COST NOTICE: Imports a SQL certificate and creates passwords in an existing Azure Key Vault. Key Vault storage and operations may incur charges.'
 $root=Split-Path -Parent $PSScriptRoot
 Import-Module "$root/Modules/CloudLab.Azure/HealthSql.psm1" -Force
 $c=Import-PowerShellDataFile "$root/.local/config/lab.psd1"
 $h=Read-CLHealthSql $c $root
-if (-not $PSCmdlet.ShouldProcess($c.VaultName,'Import SQL TLS PFX and create/reuse the project-owned SQL health password')) { return }
+if (-not $PSCmdlet.ShouldProcess($c.VaultName,'Import SQL TLS PFX and create/reuse the project-owned SQL health and database master-key passwords')) { return }
 if (-not $EnableBillableResources) { throw 'Use -EnableBillableResources after reviewing the cost notice.' }
 Import-Module Az.Accounts
 Import-Module Az.KeyVault
@@ -38,7 +38,8 @@ if ($existing.Count) {
         foreach ($cert in $collection) { $cert.Dispose() }
     }
 }
-$existing=@(Get-AzKeyVaultSecret -VaultName $c.VaultName | Where-Object Name -eq $h.PasswordSecret)
+foreach ($secretName in @($h.PasswordSecret,'health-sql-dmk-password')) {
+$existing=@(Get-AzKeyVaultSecret -VaultName $c.VaultName | Where-Object Name -eq $secretName)
 if ($existing.Count) {
     if ($existing[0].Tags['CloudLabProject'] -ne $c.ProjectId) { throw 'Refusing to reuse another project password.' }
 } else {
@@ -46,7 +47,8 @@ if ($existing.Count) {
     [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
     $plain='aA9!'+[Convert]::ToBase64String($bytes)
     $secure=ConvertTo-SecureString $plain -AsPlainText -Force
-    try { Set-AzKeyVaultSecret -VaultName $c.VaultName -Name $h.PasswordSecret -SecretValue $secure -Tag @{CloudLabProject=$c.ProjectId} | Out-Null }
+    try { Set-AzKeyVaultSecret -VaultName $c.VaultName -Name $secretName -SecretValue $secure -Tag @{CloudLabProject=$c.ProjectId} | Out-Null }
     finally { $plain=$null;$secure.Dispose();[Array]::Clear($bytes,0,$bytes.Length) }
 }
-Write-Output 'SQL certificate and password are ready in Key Vault. No secret value was printed or written to the repository.'
+}
+Write-Output 'SQL certificate and passwords are ready in Key Vault. No secret value was printed or written to the repository.'

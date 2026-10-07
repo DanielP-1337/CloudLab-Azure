@@ -72,6 +72,7 @@
         RestoreStorageAccount = 'REPLACE-account'; RestoreResourceGroup = 'REPLACE-restore-rg'
     }
     Export = @{
+        SqlMode = 'Custom' # Use Initialize-HealthRecovery.ps1 for the isolated health profile.
         StorageAccount = 'REPLACE-unique-storage-account'
         Container = 'lab-exports'
         # Explicit bounded allowlist. Never include secrets/certificates or an entire drive.

@@ -69,7 +69,7 @@ function Invoke-CLGuest {
 function Get-CLGuestPayload {
     param($Config,[string]$ScriptPath,[ValidateSet('Linux','Windows')][string]$OS)
     $guest = @{}
-    foreach ($key in 'HealthSql','LabTls','LabTlsEnabled','ProjectId','VaultName','CertificateSecret','AppHost','AuthHost','BackendHost','Subnets','Keycloak','App','Sql','Backup','Export','BackupSetId','ExportRunId') {
+    foreach ($key in 'HealthRestore','HealthSql','LabTls','LabTlsEnabled','ProjectId','VaultName','CertificateSecret','AppHost','AuthHost','BackendHost','Subnets','Keycloak','App','Sql','Backup','Export','BackupSetId','ExportRunId') {
         if ($Config.ContainsKey($key)) { $guest[$key]=$Config[$key] }
     }
     $json = $guest | ConvertTo-Json -Depth 20 -Compress

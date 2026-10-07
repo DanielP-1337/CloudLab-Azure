@@ -354,7 +354,7 @@ before running repeated exports if size would exceed the bound. A restore test a
 DBCC CHECKDB are still necessary to validate database recovery.
 
 ```powershell
-.\Runbooks\Export-Lab.ps1 -ConfigPath $config -Interactive
+.\Runbooks\Export-Lab.ps1 -ConfigPath $config -Interactive -EnableBillableResources
 .\Runbooks\Get-LabExports.ps1 -ConfigPath $config -Interactive
 ```
 
@@ -378,7 +378,7 @@ maintenance may remain active: keep `.local/state` and use Resume-Lab.
 For a failed/incomplete deployment that has no usable guest setup:
 
 ```powershell
-.\Runbooks\Export-Lab.ps1 -ConfigPath $config -Interactive -MetadataOnly
+.\Runbooks\Export-Lab.ps1 -ConfigPath $config -Interactive -MetadataOnly -EnableBillableResources
 ```
 
 This explicitly exports control-plane inventory and available test results ONLY.
@@ -447,3 +447,15 @@ certificate and configures an isolated synthetic database, a restricted SQL logi
 and verified TLS ODBC probes. Passwords are fetched at runtime through the app
 VM managed identity. Local preparation is free of Azure operations; import and
 guest configuration require explicit billable-operation switches.
+
+## Synthetic health backup and restore
+
+See [HEALTH-RECOVERY.md](Docs/HEALTH-RECOVERY.md) for the local opt-in profile,
+cost notices, and the later Azure execution sequence. Native SQL exports contain
+a copy-only backup with an actual temporary restore, CHECKDB, and decryption of a
+synthetic encrypted value. A separate restore runbook creates a new restricted
+validation database without replacing the application database.
+
+Retain the export receipt, private backup blobs, and the referenced Key Vault
+master-key password version. This is a bounded SQL recovery smoke test, not a
+full application, identity-provider, or 512-GiB image-data backup.

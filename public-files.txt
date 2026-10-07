@@ -79,3 +79,10 @@ Runbooks/Configure-HealthSql.ps1
 Runbooks/Import-HealthSqlSecrets.ps1
 Tests/Test-HealthSql.ps1
 Docs/HEALTH-SQL.md
+Docs/HEALTH-RECOVERY.md
+Modules/CloudLab.Azure/HealthRecovery.psm1
+Runbooks/Restore-HealthSql.ps1
+Scripts/Initialize-HealthRecovery.ps1
+Scripts/Windows/HealthSqlBackup.ps1
+Scripts/Windows/Restore-HealthSql.ps1
+Tests/Test-HealthRecovery.ps1

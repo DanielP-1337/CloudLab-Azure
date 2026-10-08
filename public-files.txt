@@ -87,3 +87,11 @@ Scripts/Windows/HealthSqlBackup.ps1
 Scripts/Windows/Restore-HealthSql.ps1
 Tests/Test-HealthRecovery.ps1
 Scripts/Test-DeploymentPreflight.ps1
+Config/monitoring.example.psd1
+Docs/MONITORING.md
+Modules/CloudLab.Azure/AzureMonitor.psm1
+Runbooks/Deploy-LabMonitoring.ps1
+Runbooks/Set-LabMonitoringAlerts.ps1
+Runbooks/Test-LabMonitoring.ps1
+Scripts/Initialize-Monitoring.ps1
+Tests/Test-AzureMonitor.ps1

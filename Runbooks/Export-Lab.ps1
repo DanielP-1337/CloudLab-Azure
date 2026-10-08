@@ -30,6 +30,8 @@ try {
     $receipt.Blobs += Write-CLArtifact $Config "$out/inventory.json" "$($Config.ExportRunId)/inventory.json"
     $testFile=Join-Path $ProjectRoot ".local/results/$($state.DeploymentId)/tests.json"
     if (Test-Path $testFile) { $receipt.Blobs += Write-CLArtifact $Config $testFile "$($Config.ExportRunId)/tests.json" }
+    $monitorEvidence=Export-CLMonitoringEvidence $Config $state $out
+    if ($monitorEvidence) { $receipt.Blobs += Write-CLArtifact $Config $monitorEvidence "$($Config.ExportRunId)/monitoring-summary.json" }
     if (-not $MetadataOnly) {
         if (-not $Config.App.QuiesceReviewed) { throw 'Review all writers and set App.QuiesceReviewed before selected-file export.' }
         $state.Maintenance=@{Id=$Config.BackupSetId}; Save-CLState $state (Get-CLStatePath $Config $ProjectRoot)

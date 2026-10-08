@@ -459,3 +459,74 @@ validation database without replacing the application database.
 Retain the export receipt, private backup blobs, and the referenced Key Vault
 master-key password version. This is a bounded SQL recovery smoke test, not a
 full application, identity-provider, or 512-GiB image-data backup.
+
+## Optional Azure Monitor (preview after v0.1.0)
+
+Monitoring is disabled by default. Copy the dedicated example with
+`Scripts/Initialize-Monitoring.ps1` and configure **only**
+`.local/config/monitoring.psd1`, including email recipients. Nothing is enabled
+by the normal infrastructure deployment. See [MONITORING.md](Docs/MONITORING.md)
+for setup, deployment, activation, notification tests and teardown.
+
+The optional deployment adds Azure Monitor Agent on all three VMs, separate
+Windows/Linux data collection rules, one Log Analytics workspace, and one email
+action group. Six rules check missing heartbeat/disk telemetry and low free space
+per VM. The default sampling interval is 60 seconds; rules evaluate every five
+minutes with a 15-minute missing-data window. Disk alarms trigger below 10% free
+**or** 3 GiB free. The Windows C:/F: volumes and Linux / mount are covered.
+Thresholds, volumes, recipients, sampling and retention are locally configurable.
+Rules deploy disabled and require a successful telemetry check before explicit
+activation. Five-minute evaluation accommodates the missing-data query's union;
+this query is not compatible with the one-minute optimization.
+
+A missing heartbeat is not proof of a VM crash. This preview monitors agent
+telemetry and disk capacity, not SQL/IIS functionality or end-to-end application
+availability. It does not add WAF logs/alarms; Application Gateway/WAF stays in
+the existing architecture. Local tests do not replace live Azure and email tests.
+
+### Additional monitoring cost estimate
+
+Planning snapshot: **October 8, 2026**, EUR before taxes, three VMs and six active
+log alert rules for a full month. These costs are **additional** to VMs, Windows
+licensing, disks, Application Gateway/WAF, NAT, export storage and other services.
+No promotional credit or reservation is deducted.
+
+| Component | Assumption | Estimated monthly amount |
+| --- | --- | ---: |
+| Log Analytics ingestion in Germany West Central | 1-3 GB of billable Analytics Logs at EUR 2.6311/GB | EUR 2.63-7.89 |
+| Six log alert rules | Five-minute evaluation; provisional EUR 1.32/rule/month | EUR 7.92 |
+| Log retention | 30 days, within the included Analytics Logs retention | EUR 0 additional |
+| Email actions | Within the shared allowance of 1,000 emails/month | EUR 0 additional |
+| AMA, DCR configuration and action-group resource | No separate fixed resource charge for this profile | EUR 0 additional |
+| **Indicative total** | Before ingestion free allowances | **Approximately EUR 11-16/month** |
+
+**Price qualification:** The [official Retail Prices API](https://prices.azure.com/api/retail/prices)
+returned Germany West Central's EUR 2.6311/GB Analytics Logs rate. Its Frankfurt
+response did not expose a five-minute log-alert meter at the time of retrieval.
+The EUR 1.32 five-minute rate above is the API's **West Europe reference rate**,
+not a verified Frankfurt quote. Confirm Frankfurt pricing in the Azure calculator
+before enabling. As a conservative planning comparison, Frankfurt's returned
+one-minute meter was EUR 2.6399/rule/month; using that rate for all six rules plus
+1-3 GB gives approximately **EUR 19-24/month**. The implementation still uses
+five-minute evaluation. Neither estimate is a contractual price or spending cap.
+
+The API showed a 5-GB ingestion free tier; eligibility and remaining allowance
+are shared/offer-dependent, so the table does not deduct it. With that allowance
+available, ingestion for this small profile may cost nothing. Actual volume has
+not yet been measured in Azure: 1-3 GB is a planning assumption, not a benchmark.
+Sampling, additional counters, ingestion overhead, alert frequency and extra
+services can change the total. Check workspace usage and Cost Management after
+the first test. See [Azure Monitor pricing](https://azure.microsoft.com/pricing/details/monitor/)
+for current free allowances and billing terms.
+
+The default **0.1-GB/day ingestion cap is not a hard cost limit**. Enforcement can
+lag, and reaching the cap can stop collection and trigger missing-telemetry
+alarms. No WAF/access logs, Syslog or application content are collected by this
+profile. Do not increase retention or enable additional diagnostic feeds without
+reviewing their costs separately.
+
+Changing the local switch to false does not remove existing monitoring resources.
+Disabling alert rules does not stop agent ingestion. The standard export now
+captures a bounded monitoring summary; normal guarded teardown disables the
+rules and removes monitoring with the disposable workload resource group. Raw
+logs are not preserved as a durable export. Retained exports can still cost money.

@@ -37,10 +37,14 @@ $resources = @(Get-AzResource)
 $resources | Select-Object Name,ResourceType,ResourceGroupName | Format-Table -AutoSize
 
 '--- Provider status ---'
-$providerReport = foreach ($provider in @(
+$providerNames = @(
     'Microsoft.Compute','Microsoft.Network','Microsoft.Storage',
     'Microsoft.KeyVault','Microsoft.ManagedIdentity'
-)) {
+)
+Import-Module "$projectRoot/Modules/CloudLab.Azure/AzureMonitor.psm1" -Force
+$monitoring = Read-CLMonitoring $projectRoot
+if ($monitoring.Enabled) { $providerNames += @('Microsoft.Insights','Microsoft.OperationalInsights') }
+$providerReport = foreach ($provider in $providerNames) {
     Get-AzResourceProvider -ProviderNamespace $provider |
         Select-Object ProviderNamespace,RegistrationState -Unique
 }

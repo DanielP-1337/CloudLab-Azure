@@ -1,3 +1,4 @@
+Import-Module (Join-Path $PSScriptRoot 'AzureMonitor.psm1') -ErrorAction Stop
 $ErrorActionPreference = 'Stop'
 function Get-CLStatePath {
     param($Config,[string]$Root)
@@ -117,7 +118,26 @@ function Assert-CLDisposableInventory {
         if ($role -ne "Keycloak") { $names+="$vm-data" }
     }
     $allowed=@('Microsoft.Network/virtualNetworks','Microsoft.Network/networkSecurityGroups','Microsoft.Network/publicIPAddresses','Microsoft.Network/natGateways','Microsoft.Network/networkInterfaces','Microsoft.Network/applicationGateways','Microsoft.Compute/virtualMachines','Microsoft.Compute/disks','Microsoft.Compute/virtualMachines/extensions','Microsoft.ManagedIdentity/userAssignedIdentities')
+    $monitorNames=@(Get-CLMonitoringNames $Config)
+    $monitorTypes=@('Microsoft.OperationalInsights/workspaces','Microsoft.Insights/actionGroups','Microsoft.Insights/dataCollectionRules','Microsoft.Insights/scheduledQueryRules')
     foreach ($resource in $Inventory) {
+        if ($resource.Type -in $monitorTypes) {
+            $suffix=switch ($resource.Type) {
+                'Microsoft.OperationalInsights/workspaces' { '-monitor-law$' }
+                'Microsoft.Insights/actionGroups' { '-monitor-email$' }
+                'Microsoft.Insights/dataCollectionRules' { '-monitor-(windows|linux)$' }
+                'Microsoft.Insights/scheduledQueryRules' { '-monitor-(app|sql|keycloak)-(missing|disk)$' }
+            }
+            if ($resource.Name -notin $monitorNames -or $resource.Name -notmatch $suffix) { throw 'Unknown monitoring resource; deletion blocked.' }
+            continue
+        }
+        if ($resource.Type -eq 'Microsoft.Insights/dataCollectionRuleAssociations') {
+            $expected=@(foreach ($role in 'App','Sql','Keycloak') {
+                "/subscriptions/$($Config.SubscriptionId)/resourceGroups/$($Config.ResourceGroup)/providers/Microsoft.Compute/virtualMachines/$($Config[$role].Name)/providers/Microsoft.Insights/dataCollectionRuleAssociations/$($Config.Prefix)-monitor-dcra"
+            })
+            if ($resource.Id -notin $expected) { throw 'Unknown data collection association; deletion blocked.' }
+            continue
+        }
         $known=$resource.Name -in $names
         if ($resource.Type -eq 'Microsoft.Compute/virtualMachines/extensions') {
             $known=@('App','Sql','Keycloak' | ForEach-Object { $Config[$_].Name }) -contains $resource.Name.Split('/')[0]

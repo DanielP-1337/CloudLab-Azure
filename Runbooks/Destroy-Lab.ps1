@@ -31,6 +31,8 @@ if ($group) {
     if ($state.Status -notin @('Deleting','DeleteFailed')) { $state.DeletionApprovedInventory=@($inventory.Id) }
     $state.Status='Deleting'; Save-CLState $state $statePath
     try {
+        Suspend-CLMonitoringForDestroy $Config $state
+        Save-CLState $state $statePath
         Remove-CLExternalRoles $Config $state
         Remove-AzResourceGroup -Name $ExpectedResourceGroup -Force -ErrorAction Stop | Out-Null
     } catch { $state.Status='DeleteFailed'; Save-CLState $state $statePath; throw }

@@ -27,3 +27,4 @@ jobs:
           ./Tests/Test-SqlDeveloperMedia.ps1
           ./Tests/Test-HealthSql.ps1
           ./Tests/Test-HealthRecovery.ps1
+          ./Tests/Test-AzureMonitor.ps1

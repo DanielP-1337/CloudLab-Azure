@@ -95,3 +95,9 @@ Runbooks/Set-LabMonitoringAlerts.ps1
 Runbooks/Test-LabMonitoring.ps1
 Scripts/Initialize-Monitoring.ps1
 Tests/Test-AzureMonitor.ps1
+Config/budget.example.psd1
+Docs/BUDGET.md
+Modules/CloudLab.Azure/Budget.psm1
+Runbooks/Set-LabBudget.ps1
+Scripts/Initialize-Budget.ps1
+Tests/Test-Budget.ps1

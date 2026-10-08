@@ -530,3 +530,38 @@ Disabling alert rules does not stop agent ingestion. The standard export now
 captures a bounded monitoring summary; normal guarded teardown disables the
 rules and removes monitoring with the disposable workload resource group. Raw
 logs are not preserved as a durable export. Retained exports can still cost money.
+
+## Optional subscription budget and forecast warnings
+
+Prepare `.local/config/budget.psd1` with `Scripts/Initialize-Budget.ps1`.
+`-UseMonitoringRecipients` copies the existing local email recipients without
+putting them in public source. The template is disabled and has no preselected
+positive budget amount. Choose your amount, verify the subscription's budget
+currency in Cost Management, and enable it locally. These steps do not access Azure.
+
+`Runbooks/Set-LabBudget.ps1 -Mode Deploy -WhatIf` previews the operation locally.
+The actual Deploy command creates/updates a **subscription-wide monthly budget**
+with default actual-cost emails at 50%, 80% and 100%, plus a forecast email at 100%.
+It covers more than the disposable resource group, including retained and
+unexpected subscription resources within Cost Management's cost coverage.
+`-Mode Test` checks Azure's stored configuration without changing it.
+
+**Additional cost: EUR 0 for this budget-only Azure Cost Management profile**, based
+on [Microsoft's pricing](https://azure.microsoft.com/pricing/details/cost-management/)
+reviewed October 8, 2026. It uses direct budget emails and provisions no additional
+Azure Monitor alert rules, workspace, action group or automation. The optional
+VM monitoring described above has its own separate costs. Existing infrastructure
+continues to incur its normal charges.
+
+**A budget is not a hard spending cap, shutdown mechanism or real-time malware
+alarm.** Cost data normally arrives 8-24 hours later; budgets are evaluated daily.
+Forecasts require sufficient history. Emails can arrive after substantial additional
+spend. The amount is in the subscription budget's currency, not automatically EUR,
+and it does not represent remaining promotional credit. Subscription upgrades and
+free-trial spending limits are never changed by these scripts.
+
+The budget remains after `Destroy-Lab` and expires on its configured end date.
+Disabling the local switch does not remove an existing budget or its emails.
+See [BUDGET.md](Docs/BUDGET.md) for local settings, currency confirmation, guarded
+updates, live verification, expiry and manual removal. No automatic shutdown is
+included in this increment.

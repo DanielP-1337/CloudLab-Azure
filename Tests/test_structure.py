@@ -1,10 +1,31 @@
-import ast,json,pathlib,re,subprocess,unittest
+import ast,json,os,pathlib,re,shutil,subprocess,unittest
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 class StructureTests(unittest.TestCase):
- def test_shell_and_embedded_python_parse(self):
+ def test_embedded_python_parse(self):
   for p in (ROOT/'Scripts/Linux').glob('*.sh'):
-   subprocess.run(['bash','-n',str(p)],check=True)
    for block in re.findall("python3 - <<'PYTHON'\n(.*?)\nPYTHON",p.read_text(),re.S): ast.parse(block)
+ def test_shell_parse(self):
+  # Prefer Git Bash on Windows; the WSL launcher can exist without a distro.
+  candidates = [os.environ.get('CLOUDLAB_BASH')]
+  if os.name == 'nt':
+   for key in ('ProgramFiles', 'ProgramW6432', 'ProgramFiles(x86)'):
+    base = os.environ.get(key)
+    if base:
+     candidates.append(str(pathlib.Path(base) / 'Git' / 'bin' / 'bash.exe'))
+  candidates.append(shutil.which('bash'))
+  bash = None
+  for candidate in filter(None, candidates):
+   try:
+    result = subprocess.run([candidate, '-c', ':'], capture_output=True, timeout=5)
+    if result.returncode == 0:
+     bash = candidate
+     break
+   except (OSError, subprocess.TimeoutExpired):
+    continue
+  if bash is None:
+   self.skipTest('No working Bash available; embedded Python was checked separately.')
+  for p in (ROOT/'Scripts/Linux').glob('*.sh'):
+   subprocess.run([bash, '-n'], input=p.read_text(), text=True, check=True)
  def test_gateway_tls_boundary(self):
   t=json.loads((ROOT/'Templates/gateway.json').read_text());g=t['resources'][1]['properties']
   self.assertEqual({x['properties']['port'] for x in g['frontendPorts']},{443})

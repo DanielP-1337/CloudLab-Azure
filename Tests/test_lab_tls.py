@@ -24,7 +24,7 @@ class LabTlsTests(unittest.TestCase):
                 config['LabTls'] = {'RootThumbprint': 'test'}
             written = {}
             def write(path, text, *args, **kwargs):
-                written[str(path)] = text
+                written[str(path).replace('\\', '/')] = text
             with patch.object(pathlib.Path, 'read_text', return_value=json.dumps(config)), \
                  patch.object(pathlib.Path, 'write_text', write), \
                  patch.object(pathlib.Path, 'chmod'):

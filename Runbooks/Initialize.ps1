@@ -5,7 +5,7 @@ $ProjectRoot = Split-Path $PSScriptRoot -Parent
 foreach ($module in 'Az.Accounts','Az.Resources','Az.Network','Az.Compute','Az.KeyVault','Az.ManagedServiceIdentity','Az.Storage') {
     Import-Module $module -ErrorAction Stop
 }
-foreach ($module in 'Common','KeyVault','Network','Compute','Keycloak','Sql','Monitoring','Lifecycle','LabTls','AzureMonitor') {
+foreach ($module in 'Common','KeyVault','Network','Compute','Keycloak','Sql','Monitoring','Lifecycle','LabTls','AzureMonitor','AutoGrow') {
     Import-Module "$ProjectRoot/Modules/CloudLab.Azure/$module.psm1" -Force -Global
 }
 $Config = Read-CLConfig $ConfigPath

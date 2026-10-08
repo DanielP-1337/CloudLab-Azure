@@ -16,6 +16,7 @@ if ($native) {
     Assert-CLHealthRecoveryProfile $Config
     if ($MetadataOnly) { throw 'The native health recovery profile requires selected-file export, not MetadataOnly.' }
 }
+Set-CLAutoGrowPause $Config $state
 $inventory=Get-CLInventory $Config
 Assert-CLDisposableInventory $inventory $Config
 $Config.ExportRunId=$state.DeploymentId+'/'+[guid]::NewGuid().ToString('N')

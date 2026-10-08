@@ -565,3 +565,51 @@ Disabling the local switch does not remove an existing budget or its emails.
 See [BUDGET.md](Docs/BUDGET.md) for local settings, currency confirmation, guarded
 updates, live verification, expiry and manual removal. No automatic shutdown is
 included in this increment.
+
+## Optional image disk auto-grow (preview)
+
+A separately installed, opt-in Windows task can grow the app image data disk by
+**a configured percentage or a fixed MiB increment**, up to **4096 GiB**. It then
+extends the existing NTFS partition. Settings live only in
+`.local/config/autogrow.psd1`; the public example is disabled. Installation leaves
+the task paused until explicitly resumed with the cost acknowledgment.
+See [AUTO-GROW.md](Docs/AUTO-GROW.md) for enrollment, permissions and recovery.
+
+The app VM's identity receives disk read/write permissions only on its enrolled
+image disk. The size ceiling is enforced by the worker, not by Azure RBAC; this
+is not protection against code that compromises the VM and bypasses the worker.
+A growth intent journal prevents duplicate increments after an interrupted run.
+Export/deployment/Destroy pause the worker; re-deployment does not shrink a grown
+disk. This feature does not change SQL MDF/LDF auto-growth or the SQL data disk.
+
+### Image disk growth cost
+
+Planning prices retrieved **October 8, 2026**, **Germany West Central**, **EUR
+before taxes**, Standard HDD LRS retail disk capacity charges for a full month.
+These are the image disk alone, excluding Windows VMs, SQL, WAF, I/O transactions,
+networking and monitoring. No credits or discounts are deducted.
+
+| Provisioned image disk size | Billing tier | Approximate EUR/month |
+| --- | --- | ---: |
+| 512 GiB | S20 | 19.15 |
+| 513-1024 GiB | S30 | 36.04 |
+| 1025-2048 GiB | S40 | 72.09 |
+| 2049-4096 GiB | S50 | 144.17 |
+
+For example, +25% from 512 to 640 GiB already uses the 1024-GiB billing tier.
+At the 4096-GiB limit, disk capacity alone is about EUR 125.03/month above the
+initial 512-GiB disk. Partial-month billing is prorated; prices can change.
+The 50-EUR warning budget does not stop auto-grow or other Azure spending.
+No additional Automation or Monitor resources are created by the task itself;
+existing VM runtime and disk transactions remain billable. Deleting files does
+not reduce provisioned capacity or its tier. No automatic shrink is attempted.
+
+Offline calculations, disk guards and interrupted-growth recovery are tested.
+Live Azure/Windows expansion and operational alert response must be validated
+before relying on unattended uploads. Capacity limits and outages still require
+upload retries/queuing and an operator response.
+
+Sources: [Azure Retail Prices API](https://prices.azure.com/api/retail/prices)
+(`currencyCode=EUR`, `armRegionName=germanywestcentral`, Storage Standard HDD S20,
+S30, S40 and S50 LRS Disk meters), and
+[Azure disk billing](https://learn.microsoft.com/en-us/azure/virtual-machines/disks-understand-billing).

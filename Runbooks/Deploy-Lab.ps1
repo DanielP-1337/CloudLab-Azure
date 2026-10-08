@@ -19,6 +19,10 @@ $stages=if ($Stage -eq 'All') { @('Bootstrap','Network','Egress','Compute','Gate
 try {
  foreach ($step in $stages) {
     if ($step -notin @('Bootstrap','Network')) { Assert-CLGroup $Config $state (Get-CLGroup $Config.ResourceGroup) }
+    if ($state.ContainsKey('AutoGrow')) {
+        Set-CLAutoGrowPause $Config $state
+        Sync-CLAutoGrowSize $Config $state
+    }
     # Invalidate old export before any stage can change workload data/resources.
     $state.Export=$null; $state.Status='Deploying'; Save-CLState $state $statePath
     switch ($step) {

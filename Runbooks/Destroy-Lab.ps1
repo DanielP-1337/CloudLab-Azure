@@ -31,6 +31,8 @@ if ($group) {
     if ($state.Status -notin @('Deleting','DeleteFailed')) { $state.DeletionApprovedInventory=@($inventory.Id) }
     $state.Status='Deleting'; Save-CLState $state $statePath
     try {
+        Set-CLAutoGrowPause $Config $state
+        Remove-CLAutoGrowRole $Config $state
         Suspend-CLMonitoringForDestroy $Config $state
         Save-CLState $state $statePath
         Remove-CLExternalRoles $Config $state

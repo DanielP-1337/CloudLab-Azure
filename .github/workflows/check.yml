@@ -29,3 +29,4 @@ jobs:
           ./Tests/Test-HealthRecovery.ps1
           ./Tests/Test-AzureMonitor.ps1
           ./Tests/Test-Budget.ps1
+          ./Tests/Test-AutoGrow.ps1

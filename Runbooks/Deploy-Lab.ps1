@@ -14,11 +14,24 @@ try {
 $state=Read-CLState $Config $ProjectRoot -Create
 Assert-CLNotInMaintenance $state
 $statePath=Get-CLStatePath $Config $ProjectRoot
+# Adopt existing schema-3 state only after inspecting a strictly network-only inventory.
+if (-not $state.ContainsKey('StageJournal')) {
+    if ($state.Status -eq 'Prepared' -and $Stage -in @('Bootstrap','All') -and -not (Get-CLGroup $Config.ResourceGroup)) {
+        $state.StageJournal=@{Version=1;Baseline='Fresh';Attempted=@();Completed=@()}
+    } else {
+        Assert-CLGroup $Config $state (Get-CLGroup $Config.ResourceGroup)
+        Initialize-CLInfrastructureJournal $Config $state (Get-CLInventory $Config)
+    }
+    Save-CLState $state $statePath
+}
 if ($Stage -notin @('Bootstrap','Network') -and -not $EnableBillableResources) { throw 'Use -EnableBillableResources for this stage. No cost estimate or spending cap is implied.' }
 $stages=if ($Stage -eq 'All') { @('Bootstrap','Network','Egress','Compute','Gateway','Sql','Application','Identity') } else { @($Stage) }
 try {
  foreach ($step in $stages) {
     if ($step -notin @('Bootstrap','Network')) { Assert-CLGroup $Config $state (Get-CLGroup $Config.ResourceGroup) }
+    # Journal BEFORE stage side effects. Even a failed SQL attempt blocks infrastructure-only destroy.
+    $state.StageJournal.Attempted=@($state.StageJournal.Attempted + $step | Select-Object -Unique)
+    Save-CLState $state $statePath
     if ($state.ContainsKey('AutoGrow')) {
         Set-CLAutoGrowPause $Config $state
         Sync-CLAutoGrowSize $Config $state
@@ -44,6 +57,8 @@ try {
         Application { Deploy-CLApplication $Config $ProjectRoot }
         Identity { Deploy-CLKeycloak $Config $ProjectRoot }
     }
+    $state.StageJournal.Completed=@($state.StageJournal.Completed + $step | Select-Object -Unique)
+    Save-CLState $state $statePath
  }
  $state.Status='Deployed'
 } catch { $state.Status='DeployFailed'; throw }

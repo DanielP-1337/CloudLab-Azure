@@ -109,3 +109,7 @@ Modules/CloudLab.Azure/AutoGrow.psm1
 Runbooks/Set-LabAutoGrow.ps1
 Tests/Test-AutoGrow.ps1
 Docs/AUTO-GROW.md
+Docs/INFRASTRUCTURE-RECOVERY.md
+Scripts/Test-ComputeSafety.ps1
+Scripts/Test-FailureRecovery.ps1
+Tests/Test-InfrastructureRecovery.ps1

@@ -109,6 +109,50 @@ function Get-CLInventoryHash {
     $text=(@($Inventory | ForEach-Object { $_.Id.ToLowerInvariant()+'|'+$_.Type.ToLowerInvariant() } | Sort-Object) -join "`n")
     [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($text)))
 }
+# A legacy deployment may be adopted only from the exact, read-only network baseline.
+# No missing history is ever interpreted as proof that an application was not deployed.
+function Initialize-CLInfrastructureJournal {
+    param($Config,$State,$Inventory)
+    if ($State.ContainsKey('StageJournal')) { return }
+    if ($State.Status -ne 'Deployed' -or $Config.Environment -ne 'sandbox') { throw 'Cannot adopt legacy stage history from this state.' }
+    $expected=@($Config.VNetName)
+    foreach ($name in 'AppSubnet','DbSubnet','KeycloakSubnet') { $expected += "$($Config.Prefix)-$name-nsg" }
+    if (@($Inventory).Count -ne 4) { throw 'Legacy adoption requires exactly the VNet and three NSGs.' }
+    if (@($Inventory | Select-Object -ExpandProperty Name -Unique).Count -ne 4) { throw 'Legacy adoption requires distinct resource names.' }
+    foreach ($item in $Inventory) {
+        $type=if ($item.Name -eq $Config.VNetName) { 'Microsoft.Network/virtualNetworks' } else { 'Microsoft.Network/networkSecurityGroups' }
+        if ($item.Name -notin $expected -or $item.Type -ne $type) { throw 'Legacy adoption: unexpected resource.' }
+    }
+    $State.StageJournal=@{ Version=1; Baseline='NetworkOnly'; Attempted=@('Bootstrap','Network'); Completed=@('Bootstrap','Network') }
+}
+function Assert-CLInfrastructureOnly {
+    param($Config,$State)
+    if ($Config.Environment -ne 'sandbox' -or -not $State.ContainsKey('StageJournal')) { throw 'Missing trusted infrastructure stage journal.' }
+    $journal=$State.StageJournal
+    if ($journal.Version -ne 1 -or $journal.Baseline -notin @('NetworkOnly','Fresh')) { throw 'Unknown stage journal provenance.' }
+    $allowed=@('Bootstrap','Network','Egress','Compute')
+    foreach ($field in 'Attempted','Completed') {
+        if (-not $journal.ContainsKey($field)) { throw 'Incomplete stage journal.' }
+        if (@($journal[$field] | Where-Object { $_ -notin $allowed }).Count) { throw 'An application stage was attempted; native export required.' }
+    }
+    foreach ($stage in $journal.Completed) { if ($stage -notin $journal.Attempted) { throw 'Invalid stage journal ordering.' } }
+}
+function Get-CLStageJournalHash {
+    param($State)
+    $j=$State.StageJournal
+    $data=($j.Baseline+'|'+($j.Attempted -join ',')+'|'+($j.Completed -join ','))
+    [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($data)))
+}
+function Assert-CLInfrastructureReceipt {
+    param($Config,$State)
+    Assert-CLInfrastructureOnly $Config $State
+    if (-not $State.Export -or $State.Export.Mode -ne 'InfrastructureOnly' -or
+        $State.Export.SqlMode -ne 'InfrastructureOnly' -or
+        -not $State.Export.ContainsKey('StageJournalHash') -or
+        $State.Export.StageJournalHash -ne (Get-CLStageJournalHash $State)) {
+        throw 'Infrastructure receipt or stage history changed. Destroy blocked.'
+    }
+}
 function Assert-CLDisposableInventory {
     param($Inventory,$Config)
     $names=@($Config.VNetName,"$($Config.Prefix)-nat","$($Config.Prefix)-nat-ip","$($Config.Prefix)-ingress-ip","$($Config.Prefix)-gateway","$($Config.Prefix)-gateway-id")
@@ -173,7 +217,9 @@ function Assert-CLExport {
     if (-not $State.Export -or $State.Export.Status -ne 'Completed') { throw 'A completed export receipt is required.' }
     if ($State.Export.InventoryHash -ne (Get-CLInventoryHash $Inventory)) { throw 'Resource inventory changed after export. Export again.' }
     if ($State.Export.StorageAccount -ne $Config.Export.StorageAccount -or $State.Export.Container -ne $Config.Export.Container) { throw 'Export destination/config mismatch.' }
-    if ($Config.Export.ContainsKey('SqlMode') -and $Config.Export.SqlMode -eq 'HealthNative') {
+    if ($State.Export.Mode -eq 'InfrastructureOnly') {
+        Assert-CLInfrastructureReceipt $Config $State
+    } elseif ($Config.Export.ContainsKey('SqlMode') -and $Config.Export.SqlMode -eq 'HealthNative') {
         if (-not $State.Export.ContainsKey('SqlMode') -or $State.Export.SqlMode -ne 'HealthNative' -or $State.Export.Mode -ne 'SelectedFiles' -or
             @($State.Export.Blobs | Where-Object { $_.Blob -cmatch '/Sql\.zip$' }).Count -ne 1) { throw 'Native SQL export required. Destroy blocked.' }
     }
